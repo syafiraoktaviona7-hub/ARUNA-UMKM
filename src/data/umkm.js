@@ -1,0 +1,66 @@
+// Data contoh. Ganti dengan response API backend (idealnya filter dilakukan di server).
+export const categories = [
+  "Semua",
+  "Makanan",
+  "Minuman",
+  "Kerajinan",
+  "Fashion",
+  "Home Decor",
+];
+
+export const umkmList = [
+  {
+    id: 1,
+    name: "Keripik Tempe Bu Sari",
+    category: "Makanan",
+    province: "Jawa Timur",
+    city: "Kota Surabaya",
+    district: "Gubeng",
+    image: "/images/produk-1.jpg",
+  },
+  {
+    id: 2,
+    name: "Kopi Arjuna",
+    category: "Minuman",
+    province: "Jawa Timur",
+    city: "Kota Malang",
+    district: "Klojen",
+    image: "/images/produk-2.jpg",
+  },
+  {
+    id: 3,
+    name: "Batik Tulis Pesisir",
+    category: "Fashion",
+    province: "Jawa Tengah",
+    city: "Kota Pekalongan",
+    district: "Pekalongan Timur",
+    image: "/images/produk-3.jpg",
+  },
+  {
+    id: 4,
+    name: "Anyaman Rotan Lestari",
+    category: "Kerajinan",
+    province: "Jawa Barat",
+    city: "Kota Cirebon",
+    district: "Harjamukti",
+    image: "/images/produk-4.jpg",
+  },
+  {
+    id: 5,
+    name: "Gerabah Kasongan",
+    category: "Home Decor",
+    province: "Daerah Istimewa Yogyakarta",
+    city: "Kabupaten Bantul",
+    district: "Kasihan",
+    image: "/images/produk-5.jpg",
+  },
+  {
+    id: 6,
+    name: "Sambal Roa Manado",
+    category: "Makanan",
+    province: "Sulawesi Utara",
+    city: "Kota Manado",
+    district: "Wenang",
+    image: "/images/produk-6.jpg",
+  },
+];
