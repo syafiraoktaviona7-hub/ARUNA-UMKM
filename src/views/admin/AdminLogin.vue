@@ -53,21 +53,24 @@ async function handleSubmit() {
         </p>
 
         <div class="stack" aria-hidden="true">
-          <div class="mini mini-a">
-            <span>UMKM aktif</span>
-            <strong>128</strong>
+          <div class="win">
+            <div class="win-head"><i></i><i></i><i></i></div>
+            <div class="win-stats">
+              <div><span>UMKM aktif</span><strong>128</strong></div>
+              <div><span>Produk</span><strong>842</strong></div>
+            </div>
+            <svg viewBox="0 0 220 70" preserveAspectRatio="none">
+              <defs><linearGradient id="lg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#0865d8" stop-opacity=".3" /><stop offset="1" stop-color="#0865d8" stop-opacity="0" /></linearGradient></defs>
+              <polygon points="0,70 0,52 37,44 73,48 110,28 147,34 183,12 220,18 220,70" fill="url(#lg)" />
+              <polyline points="0,52 37,44 73,48 110,28 147,34 183,12 220,18" fill="none" stroke="#0865d8" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round" />
+            </svg>
           </div>
-          <div class="mini mini-b">
-            <span>Menunggu verifikasi</span>
-            <strong>6</strong>
-          </div>
-          <div class="mini mini-c">
-            <span>Produk tampil</span>
-            <strong>842</strong>
-          </div>
+          <div class="float f1"><span class="ok">✓</span><div><b>Kopi Arjuna disetujui</b><small>baru saja</small></div></div>
+          <div class="float f2"><span class="wait">6</span><div><b>Menunggu verifikasi</b><small>perlu diperiksa</small></div></div>
         </div>
       </div>
 
+      
       <div class="glow" aria-hidden="true"></div>
     </aside>
 
@@ -202,49 +205,111 @@ async function handleSubmit() {
   opacity: 0.85;
 }
 
-/* Kartu ringkasan sebagai pratinjau isi dashboard */
+/* Pratinjau dashboard */
 .stack {
   position: relative;
-  height: 210px;
-  margin-top: 36px;
+  height: 290px;
+  margin-top: 34px;
 }
 
-.mini {
+.win {
   position: absolute;
-  display: grid;
-  gap: 2px;
-  min-width: 170px;
-  padding: 14px 18px;
+  top: 0;
+  left: 0;
+  width: min(300px, 80%);
+  padding: 14px 16px 10px;
   color: var(--ink);
   background: var(--white);
-  border-radius: var(--radius);
-  box-shadow: 0 14px 34px rgba(7, 40, 90, 0.28);
+  border-radius: 16px;
+  box-shadow: 0 20px 44px rgba(7, 40, 90, 0.35);
 }
 
-.mini span {
-  font-size: 0.8rem;
+.win-head {
+  display: flex;
+  gap: 5px;
+  margin-bottom: 12px;
+}
+
+.win-head i {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--line);
+}
+
+.win-stats {
+  display: flex;
+  gap: 24px;
+  margin-bottom: 8px;
+}
+
+.win-stats span {
+  display: block;
+  font-size: 0.75rem;
   color: var(--muted);
 }
 
-.mini strong {
-  font-size: 1.7rem;
+.win-stats strong {
+  font-size: 1.5rem;
   font-weight: 600;
 }
 
-.mini-a {
-  top: 0;
-  left: 0;
+.win svg {
+  display: block;
+  width: 100%;
+  height: 70px;
 }
 
-.mini-b {
-  top: 56px;
-  left: 120px;
-  border-left: 4px solid #f5a524;
+.float {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  color: var(--ink);
+  background: var(--white);
+  border-radius: 14px;
+  box-shadow: 0 14px 34px rgba(7, 40, 90, 0.3);
 }
 
-.mini-c {
-  top: 124px;
-  left: 30px;
+.float b {
+  display: block;
+  font-size: 0.85rem;
+  font-weight: 500;
+}
+
+.float small {
+  font-size: 0.75rem;
+  color: var(--muted);
+}
+
+.float span {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  font-weight: 600;
+  border-radius: 10px;
+}
+
+.float .ok {
+  color: #17794a;
+  background: #e3f6ec;
+}
+
+.float .wait {
+  color: #9a6200;
+  background: #fff3dc;
+}
+
+.f1 {
+  top: 110px;
+  left: 150px;
+}
+
+.f2 {
+  top: 188px;
+  left: 20px;
 }
 
 /* Cahaya fajar (aruna) dari bawah panel */
@@ -269,11 +334,20 @@ async function handleSubmit() {
   display: grid;
   place-items: center;
   padding: 32px 24px;
+  background:
+    radial-gradient(circle at 90% 8%, rgba(8, 101, 216, 0.1), transparent 38%),
+    radial-gradient(circle at 8% 95%, rgba(8, 101, 216, 0.08), transparent 40%),
+    var(--bg);
 }
 
 .card {
   width: 100%;
-  max-width: 400px;
+  max-width: 420px;
+  padding: 36px 34px;
+  background: var(--white);
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  box-shadow: 0 20px 50px rgba(20, 45, 78, 0.08);
 }
 
 header h1 {
