@@ -1,5 +1,5 @@
 <script setup>
-import { computed, ref } from "vue";
+import { computed, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { useAuth } from "@/composables/useAuth";
 import { db, sections } from "@/data/adminData";
@@ -8,6 +8,10 @@ const route = useRoute();
 const router = useRouter();
 const { user, logout } = useAuth();
 const keyword = ref("");
+const open = ref(false);
+
+// Tutup menu geser setiap pindah halaman
+watch(() => route.fullPath, () => (open.value = false));
 
 const icons = {
   ringkasan: "M3 12l9-9 9 9M5 10v10h14V10",
@@ -49,9 +53,13 @@ function handleLogout() {
 </script>
 
 <template>
-  <div class="shell">
-    <aside class="side">
-      <div class="brand"><span class="mark">A</span><div><strong>ARUNA</strong><small>Admin Center</small></div></div>
+  <div class="shell" @keydown.esc="open = false">
+    <div v-if="open" class="scrim" @click="open = false"></div>
+    <aside id="menu" class="side" :class="{ open }">
+      <div class="brand1"><RouterLink to="/admin" class="brand1">
+        <img src="/images/aruna-logo.png" alt="Logo ARUNA" />
+        </RouterLink></div>
+
 
       <nav aria-label="Menu admin">
         <RouterLink v-for="m in menu" :key="m.key" :to="m.to" class="item" exact-active-class="on">
@@ -71,6 +79,9 @@ function handleLogout() {
 
     <div class="main">
       <header class="top">
+        <button type="button" class="burger" aria-label="Buka menu" aria-controls="menu" :aria-expanded="open" @click="open = !open">
+          <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16" /></svg>
+        </button>
         <h1 class="ttl">{{ title }}</h1>
         <label class="search">
           <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path :d="icons.search" /></svg>
@@ -92,7 +103,18 @@ function handleLogout() {
 </template>
 
 <style scoped>
-.shell { min-height: 100vh; display: grid; grid-template-columns: 250px 1fr; background: var(--bg); color: var(--ink); }
+.brand1 {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+.brand1 img {
+  width: 150px;
+  height: 45px;
+  object-fit: contain;
+  object-position: left center;
+}
+.shell { min-height: 100vh; display: grid; grid-template-columns: 250px minmax(0, 1fr); background: var(--bg); color: var(--ink); }
 .side { position: sticky; top: 0; height: 100vh; display: flex; flex-direction: column; gap: 18px; padding: 20px 14px; overflow-y: auto; background: linear-gradient(185deg, var(--blue-dark), var(--blue)); color: var(--white); }
 .brand { display: flex; align-items: center; gap: 10px; padding: 2px 10px 6px; }
 .brand div { display: grid; line-height: 1.2; }
@@ -108,12 +130,13 @@ nav { display: grid; gap: 4px; }
 .promo small { font-size: 0.8rem; opacity: 0.85; }
 .promo b { width: fit-content; margin-top: 4px; padding: 6px 12px; font-size: 0.8rem; font-weight: 600; color: var(--blue-dark); background: var(--white); border-radius: 8px; }
 .ring { position: absolute; right: -26px; top: -26px; width: 90px; height: 90px; border-radius: 50%; border: 14px solid rgba(255,255,255,0.12); }
+.main { min-width: 0; }
 .top { position: sticky; top: 0; z-index: 5; display: flex; align-items: center; gap: 18px; padding: 14px 28px; background: rgba(255,255,255,0.92); backdrop-filter: blur(8px); border-bottom: 1px solid var(--line); }
 .ttl { font-size: 1.2rem; font-weight: 600; white-space: nowrap; }
 .search { flex: 1; max-width: 420px; display: flex; align-items: center; gap: 10px; margin-left: 12px; padding: 0 14px; color: var(--muted); background: var(--bg); border: 1px solid var(--line); border-radius: 999px; }
 .search input { flex: 1; min-width: 0; padding: 10px 0; color: var(--ink); background: transparent; border: 0; outline: 0; }
 .search:focus-within { border-color: var(--blue); }
-.who { display: flex; align-items: center; gap: 12px; margin-left: auto; }
+.who { display: flex; flex-shrink: 0; align-items: center; gap: 12px; margin-left: auto; }
 .bell { position: relative; display: grid; place-items: center; width: 40px; height: 40px; color: var(--ink); background: var(--bg); border-radius: 50%; }
 .bell i { position: absolute; top: -2px; right: -2px; min-width: 18px; padding: 0 5px; font-size: 0.7rem; font-style: normal; line-height: 18px; text-align: center; color: var(--white); background: #e5484d; border-radius: 999px; }
 .avatar { display: grid; place-items: center; width: 38px; height: 38px; color: var(--white); background: var(--blue); border-radius: 50%; font-weight: 600; }
@@ -123,14 +146,31 @@ nav { display: grid; gap: 4px; }
 .who button:hover { border-color: var(--blue); color: var(--blue); }
 .body { padding: 24px 28px 40px; }
 
-@media (max-width: 900px) {
-  .shell { grid-template-columns: 1fr; }
-  .side { position: static; height: auto; flex-direction: row; flex-wrap: wrap; align-items: center; padding: 12px; gap: 8px; }
-  nav { display: flex; overflow-x: auto; width: 100%; order: 3; }
-  .item { white-space: nowrap; }
-  .promo { display: none; }
+.burger { display: none; place-items: center; width: 40px; height: 40px; color: var(--ink); background: var(--bg); border: 1px solid var(--line); border-radius: 10px; }
+.scrim { display: none; }
+
+/* Tablet dan HP: sidebar menjadi menu geser */
+@media (max-width: 1024px) {
+  .shell { grid-template-columns: minmax(0, 1fr); }
+  .side { position: fixed; inset: 0 auto 0 0; z-index: 30; width: 270px; transform: translateX(-100%); transition: transform 0.22s ease; box-shadow: 8px 0 30px rgba(7, 40, 90, 0.3); }
+  .side.open { transform: none; }
+  .scrim { display: block; position: fixed; inset: 0; z-index: 20; background: rgba(20, 45, 78, 0.45); }
+  .burger { display: grid; }
+  .top { gap: 12px; padding: 12px 18px; }
+  .search { margin-left: 0; max-width: none; }
+  .body { padding: 20px 18px 32px; }
+}
+
+@media (max-width: 640px) {
   .search, .name { display: none; }
-  .top { padding: 12px 14px; }
-  .body { padding: 18px 14px; }
+  .ttl { flex: 1; min-width: 0; overflow: hidden; font-size: 1.05rem; text-overflow: ellipsis; }
+  .top { padding: 10px 14px; }
+  .who { gap: 8px; }
+  .who button { padding: 7px 12px; font-size: 0.88rem; }
+  .body { padding: 16px 14px 28px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .side { transition: none; }
 }
 </style>

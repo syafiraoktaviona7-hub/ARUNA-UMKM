@@ -96,5 +96,10 @@ tbody tr + tr td { border-top: 1px solid var(--line); }
 .acts .ok:hover { background: var(--blue-dark); }
 .acts .bad { color: #b3261e; border-color: #f0c4c0; }
 .acts .bad:hover { background: #fdecea; }
+@media (max-width: 560px) {
+  .tools input { min-width: 100%; max-width: none; }
+  .tools select { flex: 1; }
+  th, td { padding: 11px 12px; }
+}
 .empty { padding: 40px 16px; text-align: center; color: var(--muted); }
 </style>

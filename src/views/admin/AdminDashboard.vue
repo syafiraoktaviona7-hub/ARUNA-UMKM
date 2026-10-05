@@ -93,7 +93,7 @@ const actions = [
             <line v-for="n in 3" :key="n" x1="0" x2="560" :y1="(H / 3) * n" :y2="(H / 3) * n" stroke="#e2ecf8" />
             <polygon :points="area" fill="url(#g)" />
             <polyline :points="line" fill="none" stroke="#0865d8" stroke-width="3" stroke-linejoin="round" stroke-linecap="round" />
-            <g v-for="(p, i) in pts" :key="i"><circle :cx="p[0]" :cy="p[1]" r="4.5" fill="#fff" stroke="#0865d8" stroke-width="2.5" /><text :x="p[0]" :y="p[1] - 12" text-anchor="middle" font-size="12" fill="#5c718a">{{ orders[i] }}</text><text :x="p[0]" :y="H + 20" text-anchor="middle" font-size="12" fill="#5c718a">{{ days[i] }}</text></g>
+            <g v-for="(p, i) in pts" :key="i"><circle :cx="p[0]" :cy="p[1]" r="5.5" fill="#fff" stroke="#0865d8" stroke-width="2.5" /><text :x="p[0]" :y="p[1] - 12" text-anchor="middle" font-size="16" fill="#5c718a">{{ orders[i] }}</text><text :x="p[0]" :y="H + 20" text-anchor="middle" font-size="16" fill="#5c718a">{{ days[i] }}</text></g>
           </svg>
         </section>
 
@@ -146,7 +146,8 @@ const actions = [
 
 <style scoped>
 .page { display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: 20px; align-items: start; }
-.left, .right { display: grid; gap: 20px; min-width: 0; }
+.left, .right { display: grid; grid-template-columns: minmax(0, 1fr); gap: 20px; min-width: 0; }
+.card, .hero, .stats { min-width: 0; }
 .card { padding: 20px; background: var(--white); border: 1px solid var(--line); border-radius: 16px; }
 .head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
 .head h3 { font-size: 1rem; font-weight: 600; }
@@ -164,7 +165,7 @@ const actions = [
 .art i:nth-child(2) { right: 60px; bottom: -50px; width: 120px; height: 120px; background: rgba(255,255,255,0.2); }
 .art i:nth-child(3) { right: 10px; top: 30px; width: 54px; height: 54px; background: #ffd9a8; opacity: 0.9; }
 
-.stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; }
+.stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; }
 .stat { display: grid; gap: 2px; padding: 18px; border: 1px solid transparent; border-radius: 18px; }
 .top-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
 .stat .chip { display: grid; place-items: center; width: 42px; height: 42px; background: var(--white); border-radius: 12px; box-shadow: 0 4px 12px rgba(20, 45, 78, 0.08); }
@@ -213,7 +214,22 @@ tbody td { border-top: 1px solid var(--line); }
 .qa a { padding: 14px 12px; font-size: 0.85rem; font-weight: 500; border-radius: 12px; }
 .qa a:hover { filter: brightness(0.97); }
 
-@media (max-width: 1250px) { .page { grid-template-columns: 1fr; } .right { grid-template-columns: repeat(3, 1fr); } }
-@media (max-width: 1000px) { .stats { grid-template-columns: repeat(2, 1fr); } .row { grid-template-columns: 1fr; } .right { grid-template-columns: 1fr; } }
-@media (max-width: 560px) { .art { display: none; } .hero { padding: 22px; } }
+@media (max-width: 1250px) { .page { grid-template-columns: minmax(0, 1fr); } .right { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+@media (max-width: 1000px) {
+  .stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .row { grid-template-columns: minmax(0, 1fr); }
+  .right { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .right .card:last-child { grid-column: 1 / -1; }
+}
+@media (max-width: 640px) {
+  .right { grid-template-columns: minmax(0, 1fr); }
+  .hero { padding: 22px 20px; }
+  .hero h2 { font-size: 1.3rem; }
+  .art { display: none; }
+  .stats { gap: 10px; }
+  .stat { padding: 14px; }
+  .stat strong { font-size: 1.6rem; }
+  .vs { display: none; }
+  .card { padding: 16px; }
+}
 </style>

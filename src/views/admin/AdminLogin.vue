@@ -40,8 +40,9 @@ async function handleSubmit() {
   <main class="login">
     <aside class="brand">
       <div class="brand-top">
-        <span class="mark">A</span>
-        <span class="logo">ARUNA</span>
+        <RouterLink  class="brand1">
+        <img src="/images/aruna-logo.png" alt="Logo ARUNA" />
+        </RouterLink>
         <span class="logo-sub">Panel Admin</span>
       </div>
 
@@ -162,7 +163,20 @@ async function handleSubmit() {
 .brand-top {
   display: flex;
   align-items: center;
-  gap: 10px;
+  justify-content: space-between;
+
+}
+
+.brand1 {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+.brand1 img {
+  width: 150px;
+  height: 45px;
+  object-fit: contain;
+  object-position: left center;
 }
 
 .mark {
@@ -456,6 +470,12 @@ input:focus-visible {
   color: var(--blue);
 }
 
+@media (max-width: 1100px) {
+  .brand { padding: 32px 28px; }
+  .brand-body h2 { font-size: 1.6rem; }
+  .f1 { left: 110px; }
+}
+
 @media (max-width: 820px) {
   .login {
     grid-template-columns: 1fr;
@@ -470,5 +490,21 @@ input:focus-visible {
   .glow {
     display: none;
   }
+
+  .panel {
+    align-items: start;
+    padding: 24px 16px 32px;
+  }
+
+  .card {
+    padding: 28px 22px;
+  }
+   .brand1 img {
+    width: 150px;
+    height: 45px;
+
+    }
 }
+
+
 </style>
