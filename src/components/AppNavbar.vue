@@ -19,7 +19,7 @@ function observe() {
     { rootMargin: "-40% 0px -55% 0px" },
   );
 
-  const ids = ["beranda", "kategori", "umkm"];
+  const ids = ["beranda", "kategori", "umkm", "tentang", "artikel"];
   ids.forEach((id) => {
     const el = document.getElementById(id);
     if (el) observer.observe(el);
@@ -64,11 +64,12 @@ onUnmounted(() => observer?.disconnect());
           :class="{ active: route.name === 'home' && active === 'umkm' }"
           >Jelajah UMKM</RouterLink
         >
-        <RouterLink to="/#tentang" class="nav-link">Tentang Kami</RouterLink>
+        <RouterLink to="/#tentang" class="nav-link"
+          :class="{ active: route.name === 'home' && active === 'tentang' }">Tentang Kami</RouterLink>
         <RouterLink
           to="/#artikel"
           class="nav-link"
-          :class="{ active: route.name === 'article' }"
+          :class="{ active: route.name === 'home' && active === 'artikel' }"
           >Artikel</RouterLink
         >
       </nav>

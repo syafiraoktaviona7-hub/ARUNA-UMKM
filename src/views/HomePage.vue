@@ -25,8 +25,8 @@ function resetAll() {
 <template>
   <main>
     <HeroSection v-model:query="query" @pick-category="category = $event" />
-    <WilayahFilter ref="filterRef" @update:area="area = $event" />
     <CategorySection v-model:category="category" />
+    <WilayahFilter ref="filterRef" @update:area="area = $event" />
     <UmkmSection
       v-model:category="category"
       :area="area"
