@@ -4,7 +4,8 @@ const columns = [
     title: "Jelajahi",
     links: [
       { label: "Kategori", to: "/#kategori" },
-      { label: "Jelajah UMKM", to: "/#umkm" },
+      { label: "Jelajahi Produk", to: "/#umkm" },
+      { label: "Jelajahi Jasa", to: "/#jasa" },
       { label: "Cara kerja", to: "/#carakerja" },
       { label: "Artikel", to: "/#artikel" },
     ],

@@ -4,6 +4,7 @@ import HeroSection from "@/components/HeroSection.vue";
 import WilayahFilter from "@/components/WilayahFilter.vue";
 import CategorySection from "@/components/CategorySection.vue";
 import UmkmSection from "@/components/UmkmSection.vue";
+import JasaSection from "@/components/JasaSection.vue";
 import HowItWorks from "@/components/HowItWorks.vue";
 import AboutSection from "@/components/AboutSection.vue";
 import SellerCta from "@/components/SellerCta.vue";
@@ -33,6 +34,7 @@ function resetAll() {
       :query="query"
       @reset="resetAll"
     />
+    <JasaSection :area="area" :query="query" @reset="resetAll" />
     <HowItWorks />
     <AboutSection />
     <SellerCta />

@@ -42,9 +42,9 @@ const areaLabel = computed(
 <template>
   <section id="umkm" class="section">
     <div class="container">
-      <h2>UMKM di {{ areaLabel }}</h2>
+      <h2>Produk UMKM di {{ areaLabel }}</h2>
       <p class="count" aria-live="polite">
-        {{ results.length }} UMKM ditemukan
+        {{ results.length }} produk ditemukan
       </p>
 
       <div class="chips" role="group" aria-label="Kategori">

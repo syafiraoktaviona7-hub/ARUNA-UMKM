@@ -1,11 +1,13 @@
 import { createRouter, createWebHistory } from "vue-router";
 import HomePage from "@/views/HomePage.vue";
 import ArticlePage from "@/views/ArticlePage.vue";
+import ProdukPage from "@/views/ProdukPage.vue";
 
 export default createRouter({
   history: createWebHistory(),
   routes: [
     { path: "/", name: "home", component: HomePage },
+    { path: "/produk", name: "products", component: ProdukPage },
     { path: "/artikel/:id", name: "article", component: ArticlePage },
     { path: "/:pathMatch(.*)*", redirect: "/" },
   ],

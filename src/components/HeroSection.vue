@@ -30,8 +30,8 @@ const goSearch = () =>
           </h1>
 
           <p class="hero-description">
-            ARUNA menghubungkan kamu dengan produk lokal berkualitas dari pelaku
-            UMKM di seluruh Indonesia. Pilih wilayahmu dan temukan UMKM
+            ARUNA menghubungkan kamu dengan produk dan jasa berkualitas dari
+            pelaku UMKM di seluruh Indonesia. Pilih wilayahmu dan temukan UMKM
             terdekat.
           </p>
 
@@ -54,7 +54,7 @@ const goSearch = () =>
             <input
               v-model="query"
               type="text"
-              placeholder="Cari produk, kategori, atau toko UMKM..."
+              placeholder="Cari produk, jasa, atau toko UMKM..."
               @keyup.enter="goSearch"
             />
             <button type="button" @click="goSearch">Cari</button>

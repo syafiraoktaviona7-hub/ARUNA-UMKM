@@ -5,8 +5,8 @@ const steps = [
     text: "Tentukan provinsi, kota, dan kecamatan untuk melihat UMKM yang paling dekat denganmu.",
   },
   {
-    title: "Temukan produknya",
-    text: "Telusuri berdasarkan kategori atau cari nama produk dan toko. Setiap UMKM menampilkan lokasi dan jenis usahanya.",
+    title: "Temukan produk atau jasa",
+    text: "Telusuri produk berdasarkan kategori, atau cari jasa seperti katering, servis, dan jahit. Setiap UMKM menampilkan lokasi dan jenis usahanya.",
   },
   {
     title: "Pesan sesuai kebutuhan",
