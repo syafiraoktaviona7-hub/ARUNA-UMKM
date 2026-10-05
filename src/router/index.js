@@ -2,13 +2,15 @@ import { createRouter, createWebHistory } from "vue-router";
 import HomePage from "@/views/HomePage.vue";
 import ArticlePage from "@/views/ArticlePage.vue";
 import ProdukPage from "@/views/ProdukPage.vue";
+import { adminRoutes, installAdminGuard } from "./adminRoutes";
 
-export default createRouter({
+const router = createRouter({
   history: createWebHistory(),
   routes: [
     { path: "/", name: "home", component: HomePage },
     { path: "/produk", name: "products", component: ProdukPage },
     { path: "/artikel/:id", name: "article", component: ArticlePage },
+    ...adminRoutes,
     { path: "/:pathMatch(.*)*", redirect: "/" },
   ],
   scrollBehavior(to, from, saved) {
@@ -27,3 +29,7 @@ export default createRouter({
     return { top: 0 };
   },
 });
+
+installAdminGuard(router);
+
+export default router;
