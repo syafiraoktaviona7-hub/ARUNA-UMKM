@@ -1,10 +1,15 @@
 <script setup>
-import { ref, onMounted, onUnmounted } from "vue";
+import { ref, watch, nextTick, onUnmounted } from "vue";
+import { useRoute } from "vue-router";
 
+const route = useRoute();
 const active = ref("beranda");
 let observer;
 
-onMounted(() => {
+function observe() {
+  observer?.disconnect();
+  if (route.name !== "home") return;
+
   observer = new IntersectionObserver(
     (entries) => {
       entries.forEach((e) => {
@@ -13,11 +18,22 @@ onMounted(() => {
     },
     { rootMargin: "-40% 0px -55% 0px" },
   );
-  ["beranda", "kategori", "umkm"].forEach((id) => {
+
+  const ids = ["beranda", "kategori", "umkm"];
+  ids.forEach((id) => {
     const el = document.getElementById(id);
     if (el) observer.observe(el);
   });
-});
+}
+
+watch(
+  () => route.name,
+  async () => {
+    await nextTick();
+    observe();
+  },
+  { immediate: true },
+);
 
 onUnmounted(() => observer?.disconnect());
 </script>
@@ -25,28 +41,36 @@ onUnmounted(() => observer?.disconnect());
 <template>
   <header class="navbar">
     <div class="navbar-container">
-      <a href="#beranda" class="brand">
+      <RouterLink to="/#beranda" class="brand">
         <img src="/images/aruna-logo.png" alt="Logo ARUNA" />
-      </a>
+      </RouterLink>
 
       <nav class="nav-menu" aria-label="Menu utama">
-        <a
-          href="#beranda"
+        <RouterLink
+          to="/#beranda"
           class="nav-link"
-          :class="{ active: active === 'beranda' }"
-          >Beranda</a
+          :class="{ active: route.name === 'home' && active === 'beranda' }"
+          >Beranda</RouterLink
         >
-        <a
-          href="#kategori"
+        <RouterLink
+          to="/#kategori"
           class="nav-link"
-          :class="{ active: active === 'kategori' }"
-          >Kategori</a
+          :class="{ active: route.name === 'home' && active === 'kategori' }"
+          >Kategori</RouterLink
         >
-        <a href="#umkm" class="nav-link" :class="{ active: active === 'umkm' }"
-          >Jelajah UMKM</a
+        <RouterLink
+          to="/#umkm"
+          class="nav-link"
+          :class="{ active: route.name === 'home' && active === 'umkm' }"
+          >Jelajah UMKM</RouterLink
         >
-        <a href="#tentang" class="nav-link">Tentang Kami</a>
-        <a href="#artikel" class="nav-link">Artikel</a>
+        <RouterLink to="/#tentang" class="nav-link">Tentang Kami</RouterLink>
+        <RouterLink
+          to="/#artikel"
+          class="nav-link"
+          :class="{ active: route.name === 'article' }"
+          >Artikel</RouterLink
+        >
       </nav>
 
       <div class="nav-actions">

@@ -3,25 +3,25 @@ const columns = [
   {
     title: "Jelajahi",
     links: [
-      { label: "Kategori", href: "#kategori" },
-      { label: "Jelajah UMKM", href: "#umkm" },
-      { label: "Cara kerja", href: "#carakerja" },
-      { label: "Artikel", href: "#artikel" },
+      { label: "Kategori", to: "/#kategori" },
+      { label: "Jelajah UMKM", to: "/#umkm" },
+      { label: "Cara kerja", to: "/#carakerja" },
+      { label: "Artikel", to: "/#artikel" },
     ],
   },
   {
     title: "Untuk penjual",
     links: [
-      { label: "Daftarkan UMKM", href: "#penjual" },
-      { label: "Masuk ke toko", href: "#" },
+      { label: "Daftarkan UMKM", to: "/#penjual" },
+      { label: "Masuk ke toko", to: "/" },
     ],
   },
   {
     title: "Bantuan",
     links: [
-      { label: "Pertanyaan umum", href: "#faq" },
-      { label: "Hubungi kami", href: "#" },
-      { label: "Kebijakan privasi", href: "#" },
+      { label: "Pertanyaan umum", to: "/#faq" },
+      { label: "Hubungi kami", to: "/" },
+      { label: "Kebijakan privasi", to: "/" },
     ],
   },
 ];
@@ -45,9 +45,9 @@ const columns = [
         :aria-label="col.title"
       >
         <h3>{{ col.title }}</h3>
-        <a v-for="l in col.links" :key="l.label" :href="l.href">{{
+        <RouterLink v-for="l in col.links" :key="l.label" :to="l.to">{{
           l.label
-        }}</a>
+        }}</RouterLink>
       </nav>
     </div>
 
@@ -60,6 +60,11 @@ const columns = [
   padding: 56px 0 24px;
   background: #0f2744;
   color: #c9d6e8;
+}
+.wrap {
+  width: 85.5%;
+  max-width: 1440px;
+  margin: 0 auto;
 }
 .top {
   display: grid;
@@ -108,6 +113,11 @@ const columns = [
   }
   .brand {
     grid-column: 1 / -1;
+  }
+}
+@media (max-width: 650px) {
+  .wrap {
+    width: 88%;
   }
 }
 @media (max-width: 480px) {

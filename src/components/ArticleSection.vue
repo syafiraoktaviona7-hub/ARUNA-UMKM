@@ -1,49 +1,54 @@
 <script setup>
-const articles = [
-  {
-    title: "Cara memotret produk makanan agar terlihat menarik",
-    excerpt:
-      "Cahaya alami, latar sederhana, dan satu sudut pengambilan sudah cukup untuk foto produk yang menggugah.",
-    tag: "Tips Usaha",
-    time: "4 menit baca",
-    image: "/images/kategori-makanan.jpg",
-  },
-  {
-    title: "Menentukan harga jual yang adil untuk UMKM",
-    excerpt:
-      "Hitung modal bahan, tenaga, dan kemasan dulu sebelum menambahkan keuntungan yang masuk akal.",
-    tag: "Keuangan",
-    time: "5 menit baca",
-    image: "/images/kategori-fashion.jpg",
-  },
-  {
-    title: "Kenapa belanja dari UMKM sekitar berdampak besar",
-    excerpt:
-      "Uang yang kamu belanjakan di usaha lokal berputar kembali di lingkunganmu sendiri.",
-    tag: "Komunitas",
-    time: "3 menit baca",
-    image: "/images/kategori-home-decor.jpg",
-  },
-];
+import { computed } from "vue";
+import { articles } from "@/data/articles";
+
+const props = defineProps({
+  province: { type: String, default: "" },
+});
+
+const national = articles.filter((a) => !a.province);
+
+const local = computed(() =>
+  props.province ? articles.filter((a) => a.province === props.province) : [],
+);
+
+const shown = computed(() => [...local.value, ...national].slice(0, 3));
+
+const heading = computed(() =>
+  props.province
+    ? `Artikel dan kabar UMKM di ${props.province}`
+    : "Artikel untuk pembeli dan pelaku UMKM",
+);
+
+const noLocal = computed(() => props.province && local.value.length === 0);
 </script>
 
 <template>
   <section id="artikel" class="articles">
     <div class="wrap">
       <div class="head">
-        <h2>Artikel untuk pembeli dan pelaku UMKM</h2>
-        <a href="#" class="more">Lihat semua artikel</a>
+        <h2>{{ heading }}</h2>
       </div>
 
+      <p v-if="noLocal" class="note">
+        Belum ada artikel khusus {{ province }}. Ini artikel untuk seluruh
+        Indonesia.
+      </p>
+
       <div class="grid">
-        <a v-for="a in articles" :key="a.title" href="#" class="card">
+        <RouterLink
+          v-for="a in shown"
+          :key="a.id"
+          :to="`/artikel/${a.id}`"
+          class="card"
+        >
           <img :src="a.image" :alt="a.title" loading="lazy" />
           <div class="body">
             <span class="meta">{{ a.tag }} · {{ a.time }}</span>
             <h3>{{ a.title }}</h3>
             <p>{{ a.excerpt }}</p>
           </div>
-        </a>
+        </RouterLink>
       </div>
     </div>
   </section>
@@ -54,12 +59,13 @@ const articles = [
   padding: 80px 0;
   background: #f4f9ff;
 }
+.wrap {
+  width: 85.5%;
+  max-width: 1440px;
+  margin: 0 auto;
+}
 .head {
-  display: flex;
-  align-items: flex-end;
-  justify-content: space-between;
-  gap: 20px;
-  margin-bottom: 32px;
+  margin-bottom: 24px;
 }
 h2 {
   color: #142d4e;
@@ -67,16 +73,12 @@ h2 {
   font-weight: 800;
   letter-spacing: -1px;
   line-height: 1.2;
-  max-width: 16em;
+  max-width: 18em;
 }
-.more {
-  color: #0865d8;
+.note {
+  margin-bottom: 20px;
+  color: #647994;
   font-size: 14px;
-  font-weight: 600;
-  white-space: nowrap;
-}
-.more:hover {
-  text-decoration: underline;
 }
 .grid {
   display: grid;
@@ -90,10 +92,13 @@ h2 {
   background: #fff;
   border: 1px solid #e2ecf8;
   border-radius: 16px;
-  transition: box-shadow 0.2s;
+  transition:
+    box-shadow 0.2s,
+    transform 0.2s;
 }
 .card:hover {
   box-shadow: 0 12px 28px rgba(36, 91, 153, 0.12);
+  transform: translateY(-3px);
 }
 .card img {
   width: 100%;
@@ -131,9 +136,8 @@ h2 {
   .articles {
     padding: 56px 0;
   }
-  .head {
-    flex-direction: column;
-    align-items: flex-start;
+  .wrap {
+    width: 88%;
   }
 }
 </style>
