@@ -1,9 +1,11 @@
 <script setup>
 import { ref, watch, nextTick, onUnmounted } from "vue";
-import { useRoute } from "vue-router";
+import { useRoute, useRouter } from "vue-router";
+import RegisterRoleModal from "@/components/RegisterRoleModal.vue";
 
 const route = useRoute();
 const active = ref("beranda");
+const showRegisterModal = ref(false);
 let observer;
 
 function observe() {
@@ -106,10 +108,23 @@ onUnmounted(() => observer?.disconnect());
         </button>
 
         <button class="login-button" type="button">Masuk</button>
-        <button class="register-button" type="button">Daftar</button>
+
+<button
+  class="register-button"
+  type="button"
+  @click="showRegisterModal = true"
+>
+  Daftar
+</button>
       </div>
     </div>
   </header>
+
+ <RegisterRoleModal
+    v-if="showRegisterModal"
+    @close="showRegisterModal = false"
+  />
+
 </template>
 
 <style scoped>
@@ -218,6 +233,9 @@ onUnmounted(() => observer?.disconnect());
   font-size: 10px;
   font-weight: 600;
   white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 .login-button {
   color: #0865d8;

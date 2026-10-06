@@ -1,0 +1,10 @@
+[33macc53f3[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m, [m[1;31morigin/main[m[33m, [m[1;31morigin/HEAD[m[33m)[m refs/heads/main@{0}: pull origin main: Fast-forward
+[33macc53f3[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m, [m[1;31morigin/main[m[33m, [m[1;31morigin/HEAD[m[33m)[m HEAD@{0}: pull origin main: Fast-forward
+[33macc53f3[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m, [m[1;31morigin/main[m[33m, [m[1;31morigin/HEAD[m[33m)[m refs/remotes/origin/main@{0}: pull origin main: fast-forward
+[33mbc775b9[m[33m ([m[1;35mrefs/stash[m[33m)[m refs/stash@{0}: On main: Simpan perubahan register sebelum pull
+[33ma36d222[m HEAD@{1}: reset: moving to HEAD
+[33ma36d222[m refs/heads/main@{1}: reset: moving to origin/main
+[33ma36d222[m HEAD@{2}: reset: moving to origin/main
+[33ma36d222[m refs/remotes/origin/HEAD@{0}: fetch
+[33ma36d222[m refs/remotes/origin/main@{1}: fetch origin: fast-forward
+[33ma58e381[m refs/heads/main@{2}: commit (merge): resolve merge conflict using friend's changes
