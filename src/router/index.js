@@ -1,17 +1,33 @@
 import { createRouter, createWebHistory } from "vue-router";
 import HomePage from "@/views/HomePage.vue";
-import ArticlePage from "@/views/ArticlePage.vue";
 import ProdukPage from "@/views/ProdukPage.vue";
-import { adminRoutes, installAdminGuard } from "./adminRoutes";
+import ArticlePage from "@/views/ArticlePage.vue";
+import NotFoundPage from "@/views/NotFoundPage.vue";
+import { articles } from "@/data/articles";
 
-const router = createRouter({
+export default createRouter({
   history: createWebHistory(),
   routes: [
     { path: "/", name: "home", component: HomePage },
     { path: "/produk", name: "products", component: ProdukPage },
-    { path: "/artikel/:id", name: "article", component: ArticlePage },
-    ...adminRoutes,
-    { path: "/:pathMatch(.*)*", redirect: "/" },
+    {
+      path: "/artikel/:id",
+      name: "article",
+      component: ArticlePage,
+      // Artikel yang tidak ada -> tampilkan 404 tanpa mengubah alamat
+      beforeEnter: (to) => {
+        const exists = articles.some((a) => String(a.id) === to.params.id);
+        if (exists) return true;
+        return {
+          name: "notfound",
+          params: { pathMatch: to.path.substring(1).split("/") },
+          query: to.query,
+          hash: to.hash,
+        };
+      },
+    },
+    // Semua alamat lain yang tidak dikenal
+    { path: "/:pathMatch(.*)*", name: "notfound", component: NotFoundPage },
   ],
   scrollBehavior(to, from, saved) {
     if (saved) return saved;
@@ -29,7 +45,3 @@ const router = createRouter({
     return { top: 0 };
   },
 });
-
-installAdminGuard(router);
-
-export default router;

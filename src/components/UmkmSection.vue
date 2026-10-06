@@ -1,14 +1,19 @@
 <script setup>
-import { ref, computed } from "vue";
-import { umkmList, categories } from "@/data/umkm";
-import UmkmCard from "./UmkmCard.vue";
+import { computed } from "vue";
+import { produkList } from "@/data/produk";
+import { categories } from "@/data/categories";
+import ProdukCard from "./ProdukCard.vue";
 
 const props = defineProps({
   area: { type: Object, required: true },
   query: { type: String, default: "" },
 });
+defineEmits(["reset"]);
 
-const activeCategory = ref("Semua");
+const category = defineModel("category", { type: String, default: "Semua" });
+
+// 8 produk = 2 baris penuh
+const PREVIEW = 8;
 
 // "Kota Surabaya" dan "Surabaya" dianggap sama
 const norm = (s = "") =>
@@ -20,16 +25,23 @@ const norm = (s = "") =>
 const results = computed(() => {
   const { province, city, district } = props.area;
   const q = props.query.toLowerCase().trim();
-  return umkmList.filter(
+  return produkList.filter(
     (u) =>
       (!province || norm(u.province) === norm(province)) &&
       (!city || norm(u.city) === norm(city)) &&
       (!district || norm(u.district) === norm(district)) &&
-      (activeCategory.value === "Semua" ||
-        u.category === activeCategory.value) &&
-      (!q || `${u.name} ${u.category}`.toLowerCase().includes(q)),
+      (category.value === "Semua" || u.category === category.value) &&
+      (!q || `${u.name} ${u.shop} ${u.category}`.toLowerCase().includes(q)),
   );
 });
+
+const preview = computed(() => results.value.slice(0, PREVIEW));
+
+// Kata pencarian dibawa ke halaman semua produk
+const seeAll = computed(() => ({
+  path: "/produk",
+  query: props.query ? { q: props.query } : {},
+}));
 
 const areaLabel = computed(
   () =>
@@ -41,7 +53,7 @@ const areaLabel = computed(
 
 <template>
   <section id="umkm" class="section">
-    <div class="container">
+    <div class="wrap">
       <h2>Produk UMKM di {{ areaLabel }}</h2>
       <p class="count" aria-live="polite">
         {{ results.length }} produk ditemukan
@@ -53,21 +65,37 @@ const areaLabel = computed(
           :key="c"
           type="button"
           class="chip"
-          :class="{ on: activeCategory === c }"
-          :aria-pressed="activeCategory === c"
-          @click="activeCategory = c"
+          :class="{ on: category === c }"
+          :aria-pressed="category === c"
+          @click="category = c"
         >
           {{ c }}
         </button>
+
+        <RouterLink :to="seeAll" class="chip chip-link">
+          Lihat Semua Produk <span aria-hidden="true">→</span>
+        </RouterLink>
       </div>
 
       <div v-if="results.length" class="grid">
-        <UmkmCard v-for="u in results" :key="u.id" :item="u" />
+        <ProdukCard v-for="u in preview" :key="u.id" :item="u" />
       </div>
-      <p v-else class="empty">
-        Belum ada UMKM di wilayah ini. Coba pilih kota atau kecamatan lain, atau
-        ganti kategori.
-      </p>
+
+      <div v-else class="empty">
+        <p>
+          Belum ada produk yang cocok dengan pilihanmu. Coba wilayah atau
+          kategori lain.
+        </p>
+        <button type="button" class="empty-btn" @click="$emit('reset')">
+          Tampilkan semua produk
+        </button>
+      </div>
+
+      <div class="more-row">
+        <RouterLink :to="seeAll" class="more-btn">
+          Lihat Semua Produk <span aria-hidden="true">→</span>
+        </RouterLink>
+      </div>
     </div>
   </section>
 </template>
@@ -75,44 +103,118 @@ const areaLabel = computed(
 <style scoped>
 .section {
   padding: 56px 0 72px;
+  background: #fff;
+}
+.wrap {
+  width: 85.5%;
+  max-width: 1440px;
+  margin: 0 auto;
 }
 h2 {
+  color: #142d4e;
   font-size: clamp(22px, 3vw, 30px);
   font-weight: 700;
   letter-spacing: -0.5px;
 }
 .count {
   margin-top: 4px;
-  color: var(--muted);
+  color: #5c718a;
   font-size: 14px;
 }
+
 .chips {
   display: flex;
   flex-wrap: wrap;
+  align-items: center;
   gap: 8px;
   margin: 24px 0;
 }
 .chip {
   padding: 7px 16px;
-  border: 1px solid var(--line);
+  border: 1px solid #e2ecf8;
   border-radius: 20px;
-  background: var(--white);
-  color: var(--muted);
+  background: #fff;
+  color: #5c718a;
   font-size: 13px;
   font-weight: 500;
 }
 .chip.on {
-  background: var(--blue);
-  border-color: var(--blue);
-  color: var(--white);
+  background: #0865d8;
+  border-color: #0865d8;
+  color: #fff;
 }
+.chip-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border-color: #0865d8;
+  color: #0865d8;
+  font-weight: 600;
+  transition: background 0.2s;
+}
+.chip-link:hover {
+  background: #eaf4ff;
+}
+
 .grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
   gap: 20px;
 }
+
 .empty {
-  padding: 40px 0;
-  color: var(--muted);
+  padding: 30px 0;
+  color: #5c718a;
+  display: grid;
+  gap: 16px;
+  justify-items: start;
+}
+.empty-btn {
+  height: 44px;
+  padding: 0 22px;
+  border: none;
+  border-radius: 10px;
+  background: #0865d8;
+  color: #fff;
+  font-size: 14px;
+  font-weight: 600;
+}
+.empty-btn:hover {
+  background: #0754b5;
+}
+
+.more-row {
+  display: flex;
+  justify-content: center;
+  margin-top: 36px;
+}
+.more-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  height: 48px;
+  padding: 0 28px;
+  border-radius: 10px;
+  background: #0865d8;
+  color: #fff;
+  font-size: 14px;
+  font-weight: 600;
+  transition: background 0.2s;
+}
+.more-btn:hover {
+  background: #0754b5;
+}
+.more-btn span {
+  font-size: 18px;
+}
+
+@media (max-width: 650px) {
+  .wrap {
+    width: 88%;
+  }
+  .grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+  }
 }
 </style>
