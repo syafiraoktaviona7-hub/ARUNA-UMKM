@@ -1,4 +1,3 @@
-
 import { createRouter, createWebHistory } from "vue-router";
 
 import HomePage from "@/views/HomePage.vue";
@@ -7,6 +6,9 @@ import ArticlePage from "@/views/ArticlePage.vue";
 import NotFoundPage from "@/views/NotFoundPage.vue";
 import RegisterPage from "@/views/RegisterPage.vue";
 import CustomerRegisterPage from "@/views/CustomerRegisterPage.vue";
+import LoginPage from "@/views/LoginPage.vue";
+import ProfilePage from "@/views/ProfilePage.vue";
+import CheckoutPage from "@/views/CheckoutPage.vue";
 
 import { articles } from "@/data/articles";
 import { adminRoutes, installAdminGuard } from "./adminRoutes";
@@ -14,8 +16,7 @@ import { adminRoutes, installAdminGuard } from "./adminRoutes";
 const router = createRouter({
     history: createWebHistory(),
 
-    routes: [
-        {
+    routes: [{
             path: "/",
             name: "home",
             component: HomePage,
@@ -34,6 +35,27 @@ const router = createRouter({
             meta: {
                 bare: true,
             },
+        },
+
+        {
+            path: "/login",
+            name: "login",
+            component: LoginPage,
+            meta: {
+                bare: true,
+            },
+        },
+
+        {
+            path: "/profil",
+            name: "profile",
+            component: ProfilePage,
+        },
+
+        {
+            path: "/checkout",
+            name: "checkout",
+            component: CheckoutPage,
         },
 
         {
@@ -94,11 +116,11 @@ const router = createRouter({
             return new Promise((resolve) => {
                 setTimeout(
                     () =>
-                        resolve({
-                            el: to.hash,
-                            top: 70,
-                            behavior: "smooth",
-                        }),
+                    resolve({
+                        el: to.hash,
+                        top: 70,
+                        behavior: "smooth",
+                    }),
                     wait,
                 );
             });
@@ -113,6 +135,3 @@ const router = createRouter({
 installAdminGuard(router);
 
 export default router;
-
-
-

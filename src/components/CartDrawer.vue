@@ -16,6 +16,27 @@ function continueShopping() {
 }
 
 function orderOnline(g) {
+  try {
+    localStorage.setItem(
+      "aruna_checkout",
+      JSON.stringify({
+        shop: g.shop,
+        whatsapp: g.whatsapp,
+        items: g.items.map((item) => ({
+          key: item.key,
+          name: item.name,
+          price: item.price,
+          image: item.image,
+          shop: item.shop,
+          whatsapp: item.whatsapp,
+          qty: item.qty,
+        })),
+      })
+    );
+  } catch (error) {
+    console.error("Gagal menyimpan data checkout:", error);
+  }
+
   close();
 
   setTimeout(() => {

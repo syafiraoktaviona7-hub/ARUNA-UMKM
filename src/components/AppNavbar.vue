@@ -1,19 +1,46 @@
 ```vue
 <script setup>
-import { ref, watch, nextTick, onUnmounted } from "vue";
+import {
+  ref,
+  watch,
+  nextTick,
+  onMounted,
+  onUnmounted,
+} from "vue";
 import { useRoute } from "vue-router";
 import { useCart } from "@/composables/useCart";
 import RegisterRoleModal from "@/components/RegisterRoleModal.vue";
+import { useAuth } from "@/composables/useAuth";
 
 const route = useRoute();
 
 // Cart
 const { count, open } = useCart();
 
+// Auth
+const { user, isLoggedIn, logout } = useAuth();
+
 const active = ref("beranda");
 const showRegisterModal = ref(false);
+const showUserMenu = ref(false);
 
 let observer;
+
+function toggleUserMenu() {
+  showUserMenu.value = !showUserMenu.value;
+}
+
+function closeUserMenu() {
+  showUserMenu.value = false;
+}
+
+function handleOutsideClick(event) {
+  const userMenu = event.target.closest(".user-menu");
+
+  if (!userMenu) {
+    closeUserMenu();
+  }
+}
 
 function observe() {
   observer?.disconnect();
@@ -61,6 +88,10 @@ watch(
     immediate: true,
   },
 );
+
+onMounted(() => {
+  document.addEventListener("click", handleOutsideClick);
+});
 
 onUnmounted(() => {
   observer?.disconnect();
@@ -203,22 +234,101 @@ onUnmounted(() => {
           </span>
         </button>
 
-        <!-- Login -->
+  <!-- Login & Register -->
+<template v-if="!isLoggedIn">
+
+  <RouterLink
+    to="/login"
+    class="login-button"
+  >
+    Masuk
+  </RouterLink>
+
+  <button
+    class="register-button"
+    type="button"
+    @click="showRegisterModal = true"
+  >
+    Daftar
+  </button>
+
+</template>
+
+<!-- Customer yang sudah login -->
+<template v-else>
+
+  <div class="user-menu">
+
+    <!-- Tombol nama customer -->
+    <button
+      class="user-info"
+      type="button"
+      @click.stop="toggleUserMenu"
+      :aria-expanded="showUserMenu"
+      aria-label="Buka menu profil"
+    >
+      <div class="user-avatar">
+  <img
+    v-if="user?.photo"
+    :src="user.photo"
+    :alt="user?.name"
+  />
+
+  <span v-else>
+    {{ user?.name?.charAt(0).toUpperCase() }}
+  </span>
+</div>
+
+      <div class="user-name">
+        {{ user?.name }}
+      </div>
+
+      <span
+        class="user-chevron"
+        :class="{ open: showUserMenu }"
+      >
+        ↓
+      </span>
+    </button>
+
+    <!-- Dropdown profil -->
+    <Transition name="profile-dropdown">
+      <div
+        v-if="showUserMenu"
+        class="profile-dropdown"
+      >
+
+       <RouterLink
+  to="/profil"
+  class="profile-menu-item"
+  @click="closeUserMenu"
+>
+  <span class="profile-menu-icon">👤</span>
+  <span>Profil Saya</span>
+</RouterLink>
+
         <button
-          class="login-button"
+          class="profile-menu-item"
           type="button"
         >
-          Masuk
+          <span class="profile-menu-icon">📦</span>
+          <span>Riwayat Pesanan</span>
         </button>
 
-        <!-- Register -->
         <button
-          class="register-button"
+          class="profile-menu-item"
           type="button"
-          @click="showRegisterModal = true"
         >
-          Daftar
+          <span class="profile-menu-icon">♡</span>
+          <span>Produk Favorit</span>
         </button>
+
+      </div>
+    </Transition>
+
+  </div>
+
+</template>
 
       </div>
     </div>
@@ -306,6 +416,149 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   gap: 10px;
+}
+
+.user-menu {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.user-info {
+  height: 36px;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 0 12px 0 5px;
+  border: 1px solid #dce8f6;
+  border-radius: 20px;
+  background: #fff;
+  cursor: pointer;
+  color: #18385f;
+  transition:
+    border-color 0.2s ease,
+    box-shadow 0.2s ease,
+    background 0.2s ease;
+}
+
+.user-info:hover {
+  border-color: #bcd5f2;
+  background: #fbfdff;
+  box-shadow: 0 4px 14px rgba(8, 101, 216, 0.08);
+}
+
+.user-avatar {
+  width: 27px;
+  height: 27px;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: #0865d8;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.user-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  border-radius: 50%;
+}
+
+.user-name {
+  max-width: 130px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: #18385f;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.user-chevron {
+  font-size: 12px;
+  color: #6d86a3;
+  line-height: 1;
+  transition: transform 0.2s ease;
+}
+
+.user-chevron.open {
+  transform: rotate(180deg);
+}
+
+/* =========================
+   PROFILE DROPDOWN
+========================= */
+
+.profile-dropdown {
+  position: absolute;
+  top: calc(100% + 10px);
+  right: 0;
+  width: 230px;
+  padding: 8px;
+  background: #fff;
+  border: 1px solid #e4edf7;
+  border-radius: 12px;
+  box-shadow: 0 12px 30px rgba(24, 56, 95, 0.12);
+  z-index: 1100;
+}
+
+.profile-menu-item {
+  width: 100%;
+  min-height: 42px;
+  box-sizing: border-box;
+  text-decoration: none;
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  padding: 0 11px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: #29415f;
+  font-family: inherit;
+  font-size: 11px;
+  font-weight: 500;
+  text-align: left;
+  cursor: pointer;
+  transition:
+    background 0.2s ease,
+    color 0.2s ease;
+}
+
+.profile-menu-item:hover {
+  background: #f1f7ff;
+  color: #0865d8;
+}
+
+.profile-menu-icon {
+  width: 22px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  color: #0865d8;
+  font-size: 15px;
+}
+
+/* =========================
+   DROPDOWN ANIMATION
+========================= */
+
+.profile-dropdown-enter-active,
+.profile-dropdown-leave-active {
+  transition:
+    opacity 0.2s ease,
+    transform 0.2s ease;
+  transform-origin: top right;
+}
+
+.profile-dropdown-enter-from,
+.profile-dropdown-leave-to {
+  opacity: 0;
+  transform: translateY(-7px) scale(0.98);
 }
 
 .cart-button {

@@ -1,22 +1,53 @@
 <script setup>
 import { ref, onUnmounted } from "vue";
 import { useCart } from "@/composables/useCart";
+import { useAuth } from "@/composables/useAuth";
+import LoginRequiredModal from "@/components/LoginRequiredModal.vue";
 
-const props = defineProps({ item: { type: Object, required: true } });
+const props = defineProps({
+  item: {
+    type: Object,
+    required: true,
+  },
+});
 
 const cart = useCart();
+const { isLoggedIn } = useAuth();
+
 const added = ref(false);
+const showAuthModal = ref(false);
+
 let timer;
 
 function addToCart() {
+  // BELUM LOGIN
+  if (!isLoggedIn.value) {
+    showAuthModal.value = true;
+    return;
+  }
+
+  // SUDAH LOGIN
   cart.add(props.item);
+
   added.value = true;
+
   clearTimeout(timer);
-  timer = setTimeout(() => (added.value = false), 1200);
+
+  timer = setTimeout(() => {
+    added.value = false;
+  }, 1200);
 }
 
-onUnmounted(() => clearTimeout(timer));
+function closeAuthModal() {
+  showAuthModal.value = false;
+}
+
+onUnmounted(() => {
+  clearTimeout(timer);
+});
 </script>
+
+
 
 <template>
   <button
@@ -26,15 +57,55 @@ onUnmounted(() => clearTimeout(timer));
     :aria-label="`Tambahkan ${item.name} ke keranjang`"
     @click="addToCart"
   >
-    <svg v-if="!added" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-      <path d="M3 4H5L7.5 16H18L21 7H6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
-      <circle cx="9" cy="20" r="1.5" fill="currentColor" />
-      <circle cx="17" cy="20" r="1.5" fill="currentColor" />
+    <svg
+      v-if="!added"
+      viewBox="0 0 24 24"
+      fill="none"
+      aria-hidden="true"
+    >
+      <path
+        d="M3 4H5L7.5 16H18L21 7H6"
+        stroke="currentColor"
+        stroke-width="1.8"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      />
+
+      <circle
+        cx="9"
+        cy="20"
+        r="1.5"
+        fill="currentColor"
+      />
+
+      <circle
+        cx="17"
+        cy="20"
+        r="1.5"
+        fill="currentColor"
+      />
     </svg>
-    <svg v-else viewBox="0 0 24 24" fill="none" aria-hidden="true">
-      <path d="M5 12l5 5 9-10" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" />
+
+    <svg
+      v-else
+      viewBox="0 0 24 24"
+      fill="none"
+      aria-hidden="true"
+    >
+      <path
+        d="M5 12l5 5 9-10"
+        stroke="currentColor"
+        stroke-width="2.2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      />
     </svg>
   </button>
+
+  <LoginRequiredModal
+    v-if="showAuthModal"
+    @close="closeAuthModal"
+  />
 </template>
 
 <style scoped>

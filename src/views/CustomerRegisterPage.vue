@@ -1,9 +1,10 @@
 <script setup>
 import { ref, computed } from "vue";
-
 import { useRouter } from "vue-router";
+import { useAuth } from "@/composables/useAuth";
 
 const router = useRouter();
+const { registerUser } = useAuth();
 
 const currentStep = ref(1);
 
@@ -55,6 +56,11 @@ const villages = [
 ];
 
 function kembali() {
+  if (currentStep.value === 3) {
+    currentStep.value = 2;
+    return;
+  }
+
   if (currentStep.value === 2) {
     currentStep.value = 1;
     return;
@@ -70,13 +76,86 @@ function lanjutkan() {
   }
 
   if (currentStep.value === 2) {
-    console.log("Data customer:", form.value);
+    currentStep.value = 3;
+    return;
+  }
+}
+
+function ubahDataDiri() {
+  currentStep.value = 1;
+}
+
+function ubahAlamat() {
+  currentStep.value = 2;
+}
+
+function daftarSekarang() {
+  try {
+   registerUser({
+  name: form.value.nama,
+  email: form.value.email,
+  password: form.value.password,
+  role: "customer",
+
+  nomorHp: form.value.nomorHp,
+  tanggalLahir: form.value.tanggalLahir,
+  jenisKelamin: form.value.jenisKelamin,
+
+  provinsi: form.value.provinsi,
+  kota: form.value.kota,
+  kecamatan: form.value.kecamatan,
+  kelurahan: form.value.kelurahan,
+  kodePos: form.value.kodePos,
+  alamatLengkap: form.value.alamatLengkap,
+});
+
+ 
+    alert("Pendaftaran berhasil! Silakan login menggunakan akun yang baru dibuat.");
+
+    router.push("/login");
+  } catch (error) {
+    alert(error.message);
   }
 }
 
 const alamatCounter = computed(() => {
   return form.value.alamatLengkap.length;
 });
+
+const tanggalLahirFormatted = computed(() => {
+  if (!form.value.tanggalLahir) {
+    return "-";
+  }
+
+  const tanggal = new Date(form.value.tanggalLahir);
+
+  return tanggal.toLocaleDateString("id-ID", {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  });
+});
+
+const showPhoneError = ref(false);
+
+function handlePhoneInput(event) {
+  const value = event.target.value;
+
+  // Cek apakah ada karakter selain angka
+  if (/[^0-9]/.test(value)) {
+    showPhoneError.value = true;
+  }
+
+  // Hanya simpan angka
+  const cleanedValue = value.replace(/[^0-9]/g, "");
+
+  form.value.nomorHp = cleanedValue;
+}
+
+function closePhoneError() {
+  showPhoneError.value = false;
+}
+
 </script>
 
 <template>
@@ -182,13 +261,16 @@ const alamatCounter = computed(() => {
           </p>
         </div>
 
-       <!-- PROGRESS -->
+<!-- PROGRESS -->
 <div class="progress-wrapper">
   <div class="progress-line">
-   <div
-  class="progress-active"
-  :class="{ 'step-two': currentStep === 2 }"
-></div>
+    <div
+      class="progress-active"
+      :class="{
+        'step-two': currentStep === 2,
+        'step-three': currentStep === 3
+      }"
+    ></div>
   </div>
 
   <!-- STEP 1 -->
@@ -196,7 +278,7 @@ const alamatCounter = computed(() => {
     class="progress-step"
     :class="{
       active: currentStep === 1,
-      completed: currentStep === 2
+      completed: currentStep === 2 || currentStep === 3
     }"
   >
     <div class="step-circle">1</div>
@@ -206,18 +288,26 @@ const alamatCounter = computed(() => {
   <!-- STEP 2 -->
   <div
     class="progress-step"
-    :class="{ active: currentStep === 2 }"
+    :class="{
+      active: currentStep === 2,
+      completed: currentStep === 3
+    }"
   >
     <div class="step-circle">2</div>
     <span>Alamat</span>
   </div>
 
   <!-- STEP 3 -->
-  <div class="progress-step">
+  <div
+    class="progress-step"
+    :class="{ active: currentStep === 3 }"
+  >
     <div class="step-circle">3</div>
     <span>Konfirmasi</span>
   </div>
 </div>
+
+
 
         <!-- DATA DIRI -->
        <!-- STEP 1 : DATA DIRI -->
@@ -274,6 +364,7 @@ const alamatCounter = computed(() => {
                   v-model="form.nomorHp"
                   type="tel"
                   placeholder="08xxxxxxxx"
+                  @input="handlePhoneInput"
                 />
               </div>
             </div>
@@ -550,12 +641,184 @@ const alamatCounter = computed(() => {
   </div>
 </div>
 
+<!-- STEP 3 : KONFIRMASI -->
+<div
+  v-if="currentStep === 3"
+  class="form-section confirmation-section"
+>
+  <h3>Konfirmasi Data</h3>
+
+  <p class="form-description">
+    Periksa kembali data Anda sebelum membuat akun Customer ARUNA.
+  </p>
+
+  <!-- DATA DIRI -->
+  <div class="confirmation-card">
+
+    <div class="confirmation-header">
+      <div class="confirmation-title">
+        <div class="confirmation-icon">
+          <svg viewBox="0 0 24 24" fill="none">
+            <circle
+              cx="12"
+              cy="8"
+              r="3.5"
+              stroke="currentColor"
+              stroke-width="1.8"
+            />
+            <path
+              d="M5 20c.8-3.2 3.2-5 7-5s6.2 1.8 7 5"
+              stroke="currentColor"
+              stroke-width="1.8"
+              stroke-linecap="round"
+            />
+          </svg>
+        </div>
+
+        <div>
+          <h4>Data Diri</h4>
+          <p>Informasi dasar akun Anda</p>
+        </div>
+      </div>
+
+      <button
+        type="button"
+        class="edit-button"
+        @click="ubahDataDiri"
+      >
+        <span>✎</span>
+        Ubah
+      </button>
+    </div>
+
+    <div class="confirmation-divider"></div>
+
+    <div class="confirmation-data-grid">
+
+      <div class="confirmation-data">
+        <span>Nama Lengkap</span>
+        <strong>{{ form.nama || "-" }}</strong>
+      </div>
+
+      <div class="confirmation-data">
+        <span>Alamat Email</span>
+        <strong>{{ form.email || "-" }}</strong>
+      </div>
+
+      <div class="confirmation-data">
+        <span>Nomor Handphone</span>
+        <strong>{{ form.nomorHp || "-" }}</strong>
+      </div>
+
+      <div class="confirmation-data">
+        <span>Tanggal Lahir</span>
+        <strong>{{ tanggalLahirFormatted }}</strong>
+      </div>
+
+      <div class="confirmation-data">
+        <span>Jenis Kelamin</span>
+        <strong>{{ form.jenisKelamin || "-" }}</strong>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ALAMAT -->
+  <div class="confirmation-card">
+
+    <div class="confirmation-header">
+      <div class="confirmation-title">
+        <div class="confirmation-icon">
+          <svg viewBox="0 0 24 24" fill="none">
+            <path
+              d="M12 21s7-6.2 7-12a7 7 0 1 0-14 0c0 5.8 7 12 7 12Z"
+              stroke="currentColor"
+              stroke-width="1.8"
+            />
+            <circle
+              cx="12"
+              cy="9"
+              r="2.5"
+              stroke="currentColor"
+              stroke-width="1.8"
+            />
+          </svg>
+        </div>
+
+        <div>
+          <h4>Alamat</h4>
+          <p>Informasi alamat Anda</p>
+        </div>
+      </div>
+
+      <button
+        type="button"
+        class="edit-button"
+        @click="ubahAlamat"
+      >
+        <span>✎</span>
+        Ubah
+      </button>
+    </div>
+
+    <div class="confirmation-divider"></div>
+
+    <div class="confirmation-data-grid">
+
+      <div class="confirmation-data">
+        <span>Provinsi</span>
+        <strong>{{ form.provinsi || "-" }}</strong>
+      </div>
+
+      <div class="confirmation-data">
+        <span>Kota / Kabupaten</span>
+        <strong>{{ form.kota || "-" }}</strong>
+      </div>
+
+      <div class="confirmation-data">
+        <span>Kecamatan</span>
+        <strong>{{ form.kecamatan || "-" }}</strong>
+      </div>
+
+      <div class="confirmation-data">
+        <span>Kelurahan / Desa</span>
+        <strong>{{ form.kelurahan || "-" }}</strong>
+      </div>
+
+      <div class="confirmation-data confirmation-full">
+        <span>Alamat Lengkap</span>
+        <strong>{{ form.alamatLengkap || "-" }}</strong>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- PERSETUJUAN -->
+  <label class="agreement-box">
+    <input type="checkbox" />
+
+    <span class="agreement-check">
+      ✓
+    </span>
+
+    <span class="agreement-text">
+      Dengan melanjutkan, saya menyatakan bahwa data yang saya masukkan
+      sudah benar dan menyetujui
+      <a href="#" @click.prevent>syarat & ketentuan</a>
+      penggunaan platform ARUNA.
+    </span>
+  </label>
+
+</div>
+
         <!-- BUTTON -->
        <!-- BUTTON -->
+<!-- BUTTON -->
 <div class="button-wrapper">
+
   <!-- BUTTON KEMBALI -->
   <button
-    v-if="currentStep === 2"
+    v-if="currentStep === 2 || currentStep === 3"
     class="back-form-button"
     type="button"
     @click="kembali"
@@ -564,8 +827,9 @@ const alamatCounter = computed(() => {
     <span>Kembali</span>
   </button>
 
-  <!-- BUTTON LANJUTKAN -->
+  <!-- STEP 1 -->
   <button
+    v-if="currentStep === 1"
     class="continue-button"
     type="button"
     @click="lanjutkan"
@@ -573,6 +837,67 @@ const alamatCounter = computed(() => {
     <span>Lanjutkan</span>
     <span class="arrow">→</span>
   </button>
+
+  <!-- STEP 2 -->
+  <button
+    v-if="currentStep === 2"
+    class="continue-button"
+    type="button"
+    @click="lanjutkan"
+  >
+    <span>Lanjutkan</span>
+    <span class="arrow">→</span>
+  </button>
+
+  <!-- STEP 3 -->
+  <button
+    v-if="currentStep === 3"
+    class="continue-button"
+    type="button"
+    @click="daftarSekarang"
+  >
+    <span>Daftar Sekarang</span>
+    <span class="arrow">→</span>
+  </button>
+
+</div>
+
+<!-- POPUP NOMOR HP -->
+<div
+  v-if="showPhoneError"
+  class="phone-error-overlay"
+  @click.self="closePhoneError"
+>
+  <div class="phone-error-modal">
+
+    <button
+      type="button"
+      class="phone-error-close"
+      @click="closePhoneError"
+    >
+      ×
+    </button>
+
+    <div class="phone-error-icon">
+      !
+    </div>
+
+    <h3>Nomor HP Tidak Valid</h3>
+
+    <p>
+      Nomor HP hanya boleh diisi menggunakan
+      <strong>angka</strong>.
+    </p>
+
+    <button
+      type="button"
+      class="phone-error-button"
+      @click="closePhoneError"
+    >
+      Mengerti
+    </button>
+
+  </div>
 </div>
         
 
@@ -856,6 +1181,10 @@ const alamatCounter = computed(() => {
 
 .progress-active.step-two {
   width: 50%;
+}
+
+.progress-active.step-three {
+  width: 100%;
 }
 
 .progress-step {
@@ -1218,6 +1547,181 @@ const alamatCounter = computed(() => {
 }
 
 /* =========================
+   CONFIRMATION
+========================= */
+
+.confirmation-section {
+  margin-top: 20px;
+}
+
+.confirmation-section .form-description {
+  margin-bottom: 15px;
+}
+
+.confirmation-card {
+  width: 100%;
+  border: 1px solid #dce7f5;
+  border-radius: 13px;
+  padding: 12px 18px 18px;
+  margin-bottom: 14px;
+  background: #fff;
+}
+
+.confirmation-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.confirmation-title {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.confirmation-icon {
+  width: 48px;
+  height: 48px;
+  min-width: 48px;
+  border-radius: 50%;
+  background: #e8f2ff;
+  color: #0865d8;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.confirmation-icon svg {
+  width: 24px;
+  height: 24px;
+}
+
+.confirmation-title h4 {
+  margin: 0 0 2px;
+  color: #102b56;
+  font-size: 17px;
+  font-weight: 600;
+}
+
+.confirmation-title p {
+  margin: 0;
+  color: #8295b1;
+  font-size: 12px;
+}
+
+.edit-button {
+  border: none;
+  background: transparent;
+  color: #0865d8;
+
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 600;
+
+  display: flex;
+  align-items: center;
+  gap: 7px;
+
+  cursor: pointer;
+}
+
+.edit-button span {
+  font-size: 22px;
+}
+
+.edit-button:hover {
+  color: #0758bf;
+}
+
+.confirmation-divider {
+  height: 1px;
+  background: #e1e9f3;
+  margin: 10px 0 12px;
+}
+
+.confirmation-data-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  column-gap: 35px;
+  row-gap: 11px;
+}
+
+.confirmation-data {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.confirmation-data span {
+  color: #8195b3;
+  font-size: 12px;
+}
+
+.confirmation-data strong {
+  color: #172f5b;
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 1.45;
+}
+
+.confirmation-full {
+  grid-column: 1 / -1;
+  margin-top: 2px;
+}
+
+.agreement-box {
+  width: 100%;
+  min-height: 58px;
+
+  display: flex;
+  align-items: center;
+  gap: 13px;
+
+  padding: 11px 15px;
+
+  border-radius: 12px;
+  background: #eaf3ff;
+
+  cursor: pointer;
+}
+
+.agreement-box input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.agreement-check {
+  width: 30px;
+  height: 30px;
+  min-width: 30px;
+
+  border-radius: 50%;
+  background: #0865d8;
+  color: #fff;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  font-size: 17px;
+  font-weight: 700;
+}
+
+.agreement-text {
+  color: #61799d;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.agreement-text a {
+  color: #0865d8;
+  font-weight: 600;
+  text-decoration: underline;
+}
+
+/* =========================
    ADDRESS BUTTONS
 ========================= */
 
@@ -1402,5 +1906,185 @@ const alamatCounter = computed(() => {
   .login-text {
     font-size: 11px;
   }
+
+.confirmation-data-grid {
+  grid-template-columns: 1fr;
 }
+
+.confirmation-full {
+  grid-column: auto;
+}
+
+.confirmation-card {
+  padding: 12px;
+}
+
+.confirmation-title {
+  gap: 9px;
+}
+
+.confirmation-title h4 {
+  font-size: 15px;
+}
+
+.edit-button {
+  font-size: 12px;
+}
+
+}
+
+/* ================================
+   POPUP NOMOR HP
+================================ */
+
+.phone-error-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  padding: 20px;
+
+  background: rgba(20, 45, 78, 0.42);
+  backdrop-filter: blur(5px);
+}
+
+.phone-error-modal {
+  position: relative;
+
+  width: min(380px, 92vw);
+
+  padding: 32px 28px 26px;
+
+  background: #ffffff;
+
+  border: 1px solid #e2ecf8;
+  border-radius: 22px;
+
+  text-align: center;
+
+  box-shadow:
+    0 25px 70px rgba(20, 65, 110, 0.22),
+    0 8px 25px rgba(20, 65, 110, 0.1);
+
+  animation: phoneErrorShow 0.22s ease-out;
+}
+
+@keyframes phoneErrorShow {
+  from {
+    opacity: 0;
+    transform: translateY(15px) scale(0.96);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.phone-error-close {
+  position: absolute;
+
+  top: 13px;
+  right: 14px;
+
+  width: 30px;
+  height: 30px;
+
+  border: none;
+  border-radius: 50%;
+
+  background: #f3f7fc;
+  color: #7890ad;
+
+  font-size: 21px;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  cursor: pointer;
+
+  transition: 0.2s ease;
+}
+
+.phone-error-close:hover {
+  background: #e8f1fb;
+  color: #0865d8;
+}
+
+.phone-error-icon {
+  width: 58px;
+  height: 58px;
+
+  margin: 0 auto 15px;
+
+  border-radius: 50%;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  background: #fff4df;
+
+  color: #f5a623;
+
+  font-size: 30px;
+  font-weight: 800;
+
+  box-shadow: 0 8px 20px rgba(245, 166, 35, 0.12);
+}
+
+.phone-error-modal h3 {
+  margin: 0 0 8px;
+
+  color: #142d4e;
+
+  font-size: 19px;
+  font-weight: 700;
+}
+
+.phone-error-modal p {
+  margin: 0 auto 22px;
+
+  max-width: 280px;
+
+  color: #7186a1;
+
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.phone-error-modal p strong {
+  color: #0865d8;
+  font-weight: 700;
+}
+
+.phone-error-button {
+  width: 100%;
+  height: 42px;
+
+  border: none;
+  border-radius: 9px;
+
+  background: #0865d8;
+  color: #ffffff;
+
+  font-size: 12px;
+  font-weight: 600;
+
+  cursor: pointer;
+
+  box-shadow: 0 7px 18px rgba(8, 101, 216, 0.18);
+
+  transition: 0.2s ease;
+}
+
+.phone-error-button:hover {
+  background: #0754b5;
+}
+
 </style>

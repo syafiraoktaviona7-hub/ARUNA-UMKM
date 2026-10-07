@@ -1,5 +1,10 @@
 <script setup>
 import { ref } from "vue";
+import { useRouter } from "vue-router";
+import { useAuth } from "@/composables/useAuth";
+
+const router = useRouter();
+const { registerUser } = useAuth();
 
 const currentStep = ref(1);
 
@@ -208,7 +213,39 @@ function submitRegister() {
   return;
 }
 
-  alert("Pendaftaran berhasil!");
+try {
+  registerUser({
+    name: form.value.namaLengkap,
+    email: form.value.email,
+    password: form.value.password,
+    role: "penjual",
+    namaToko: form.value.namaToko,
+  });
+
+  alert("Pendaftaran berhasil! Silakan login menggunakan akun yang baru dibuat.");
+
+  router.push("/login");
+} catch (error) {
+  alert(error.message);
+}
+}
+
+const showPhoneError = ref(false);
+
+function handlePhoneInput(event) {
+  const value = event.target.value;
+
+  if (/[^0-9]/.test(value)) {
+    showPhoneError.value = true;
+  }
+
+  event.target.value = value.replace(/[^0-9]/g, "");
+
+  form.phone = event.target.value;
+}
+
+function closePhoneError() {
+  showPhoneError.value = false;
 }
 
 </script>
@@ -528,6 +565,7 @@ function submitRegister() {
                     v-model="form.nomorHp"
                     type="tel"
                     placeholder="Contoh: 0812 3456 7890"
+@input="handlePhoneInput"
                   />
                 </div>
               </div>
@@ -1514,6 +1552,45 @@ function submitRegister() {
 
 
   </main>
+
+<!-- POPUP NOMOR HP -->
+<div
+  v-if="showPhoneError"
+  class="phone-error-overlay"
+  @click.self="closePhoneError"
+>
+  <div class="phone-error-modal">
+
+    <button
+      type="button"
+      class="phone-error-close"
+      @click="closePhoneError"
+    >
+      ×
+    </button>
+
+    <div class="phone-error-icon">
+      !
+    </div>
+
+    <h3>Nomor HP Tidak Valid</h3>
+
+    <p>
+      Nomor HP hanya boleh diisi menggunakan
+      <strong>angka</strong>.
+    </p>
+
+    <button
+      type="button"
+      class="phone-error-button"
+      @click="closePhoneError"
+    >
+      Mengerti
+    </button>
+
+  </div>
+</div>
+
 </template>
 
 <style scoped>
@@ -2494,4 +2571,159 @@ function submitRegister() {
     font-size: 10px;
   }
 }
+
+/* ================================
+   POPUP NOMOR HP
+================================ */
+
+.phone-error-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  padding: 20px;
+
+  background: rgba(20, 45, 78, 0.42);
+  backdrop-filter: blur(5px);
+}
+
+.phone-error-modal {
+  position: relative;
+
+  width: min(380px, 92vw);
+
+  padding: 32px 28px 26px;
+
+  background: #ffffff;
+
+  border: 1px solid #e2ecf8;
+  border-radius: 22px;
+
+  text-align: center;
+
+  box-shadow:
+    0 25px 70px rgba(20, 65, 110, 0.22),
+    0 8px 25px rgba(20, 65, 110, 0.1);
+
+  animation: phoneErrorShow 0.22s ease-out;
+}
+
+@keyframes phoneErrorShow {
+  from {
+    opacity: 0;
+    transform: translateY(15px) scale(0.96);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.phone-error-close {
+  position: absolute;
+
+  top: 13px;
+  right: 14px;
+
+  width: 30px;
+  height: 30px;
+
+  border: none;
+  border-radius: 50%;
+
+  background: #f3f7fc;
+  color: #7890ad;
+
+  font-size: 21px;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  cursor: pointer;
+
+  transition: 0.2s ease;
+}
+
+.phone-error-close:hover {
+  background: #e8f1fb;
+  color: #0865d8;
+}
+
+.phone-error-icon {
+  width: 58px;
+  height: 58px;
+
+  margin: 0 auto 15px;
+
+  border-radius: 50%;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  background: #fff4df;
+
+  color: #f5a623;
+
+  font-size: 30px;
+  font-weight: 800;
+
+  box-shadow: 0 8px 20px rgba(245, 166, 35, 0.12);
+}
+
+.phone-error-modal h3 {
+  margin: 0 0 8px;
+
+  color: #142d4e;
+
+  font-size: 19px;
+  font-weight: 700;
+}
+
+.phone-error-modal p {
+  margin: 0 auto 22px;
+
+  max-width: 280px;
+
+  color: #7186a1;
+
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.phone-error-modal p strong {
+  color: #0865d8;
+  font-weight: 700;
+}
+
+.phone-error-button {
+  width: 100%;
+  height: 42px;
+
+  border: none;
+  border-radius: 9px;
+
+  background: #0865d8;
+  color: #ffffff;
+
+  font-size: 12px;
+  font-weight: 600;
+
+  cursor: pointer;
+
+  box-shadow: 0 7px 18px rgba(8, 101, 216, 0.18);
+
+  transition: 0.2s ease;
+}
+
+.phone-error-button:hover {
+  background: #0754b5;
+}
+
 </style>
