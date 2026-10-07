@@ -3,6 +3,9 @@ import { ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { useAuth } from "@/composables/useAuth";
 
+// Ganti gambar latar panel kiri: taruh file di public/images/ lalu ubah nama di sini
+const bgImage = "/images/aruna-hero.png";
+
 const route = useRoute();
 const router = useRouter();
 const { loginAdmin } = useAuth();
@@ -38,45 +41,20 @@ async function handleSubmit() {
 
 <template>
   <main class="login">
-    <aside class="brand">
-      <div class="brand-top">
-        <RouterLink  class="brand1">
-        <img src="/images/aruna-logo.png" alt="Logo ARUNA" />
-        </RouterLink>
-        <span class="logo-sub">Panel Admin</span>
-      </div>
-
-      <div class="brand-body">
+    <aside class="hero" :style="{ '--bg-img': `url(${bgImage})` }">
+      <span class="tag">Panel Admin</span>
+      <div class="copy">
         <h2>Semua UMKM terdaftar, terpantau rapi.</h2>
-        <p class="lead">
-          Periksa pendaftaran, atur produk, dan tindak laporan customer dari
-          satu panel.
-        </p>
-
-        <div class="stack" aria-hidden="true">
-          <div class="win">
-            <div class="win-head"><i></i><i></i><i></i></div>
-            <div class="win-stats">
-              <div><span>UMKM aktif</span><strong>128</strong></div>
-              <div><span>Produk</span><strong>842</strong></div>
-            </div>
-            <svg viewBox="0 0 220 70" preserveAspectRatio="none">
-              <defs><linearGradient id="lg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#0865d8" stop-opacity=".3" /><stop offset="1" stop-color="#0865d8" stop-opacity="0" /></linearGradient></defs>
-              <polygon points="0,70 0,52 37,44 73,48 110,28 147,34 183,12 220,18 220,70" fill="url(#lg)" />
-              <polyline points="0,52 37,44 73,48 110,28 147,34 183,12 220,18" fill="none" stroke="#0865d8" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round" />
-            </svg>
-          </div>
-          <div class="float f1"><span class="ok">✓</span><div><b>Kopi Arjuna disetujui</b><small>baru saja</small></div></div>
-          <div class="float f2"><span class="wait">6</span><div><b>Menunggu verifikasi</b><small>perlu diperiksa</small></div></div>
-        </div>
+        <p>Periksa pendaftaran, atur produk, dan tindak laporan customer dari satu panel.</p>
       </div>
-
-      
-      <div class="glow" aria-hidden="true"></div>
     </aside>
 
     <section class="panel">
       <div class="card">
+        <RouterLink to="/" class="logo-link" aria-label="Kembali ke beranda ARUNA">
+          <img src="/images/aruna-logo.png" alt="Logo ARUNA" />
+        </RouterLink>
+
         <header>
           <h1>Masuk sebagai admin</h1>
           <p>Halaman ini khusus pengelola ARUNA.</p>
@@ -136,211 +114,57 @@ async function handleSubmit() {
 </template>
 
 <style scoped>
-/* Memakai variabel dan font dari :root global (--blue, --ink, dst.) */
 .login {
   --danger: #b3261e;
 
   min-height: 100vh;
   display: grid;
-  grid-template-columns: minmax(320px, 5fr) 6fr;
+  grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr);
   background: var(--bg);
   color: var(--ink);
 }
 
-/* Panel kiri */
-.brand {
+/* Panel kiri: gambar bebas + lapisan biru. Kalau gambar tidak ada, tampil gradasi biru. */
+.hero {
   position: relative;
-  overflow: hidden;
   display: flex;
   flex-direction: column;
   justify-content: space-between;
-  gap: 32px;
-  padding: 40px 48px;
-  background: linear-gradient(160deg, var(--blue), var(--blue-dark));
+  padding: 36px 44px 48px;
   color: var(--white);
+  background-color: var(--blue-dark);
+  background-image:
+    linear-gradient(180deg, rgba(7, 40, 90, 0.2) 0%, rgba(7, 40, 90, 0.88) 100%),
+    var(--bg-img),
+    linear-gradient(160deg, var(--blue), var(--blue-dark));
+  background-size: cover;
+  background-position: center;
 }
 
-.brand-top {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-
-}
-
-.brand1 {
-  display: flex;
-  align-items: center;
-  flex-shrink: 0;
-}
-.brand1 img {
-  width: 150px;
-  height: 45px;
-  object-fit: contain;
-  object-position: left center;
-}
-
-.mark {
-  display: grid;
-  place-items: center;
-  width: 36px;
-  height: 36px;
-  font-weight: 700;
-  color: var(--blue);
-  background: var(--white);
-  border-radius: 10px;
-}
-
-.logo {
-  font-size: 1.35rem;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-}
-
-.logo-sub {
-  font-size: 0.9rem;
-  opacity: 0.75;
-}
-
-.brand-body {
-  position: relative;
-  z-index: 1;
-}
-
-.brand-body h2 {
-  max-width: 380px;
-  margin-bottom: 14px;
-  font-size: 2rem;
-  line-height: 1.25;
-  font-weight: 600;
-}
-
-.lead {
-  max-width: 380px;
-  opacity: 0.85;
-}
-
-/* Pratinjau dashboard */
-.stack {
-  position: relative;
-  height: 290px;
-  margin-top: 34px;
-}
-
-.win {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: min(300px, 80%);
-  padding: 14px 16px 10px;
-  color: var(--ink);
-  background: var(--white);
-  border-radius: 16px;
-  box-shadow: 0 20px 44px rgba(7, 40, 90, 0.35);
-}
-
-.win-head {
-  display: flex;
-  gap: 5px;
-  margin-bottom: 12px;
-}
-
-.win-head i {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: var(--line);
-}
-
-.win-stats {
-  display: flex;
-  gap: 24px;
-  margin-bottom: 8px;
-}
-
-.win-stats span {
-  display: block;
-  font-size: 0.75rem;
-  color: var(--muted);
-}
-
-.win-stats strong {
-  font-size: 1.5rem;
-  font-weight: 600;
-}
-
-.win svg {
-  display: block;
-  width: 100%;
-  height: 70px;
-}
-
-.float {
-  position: absolute;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 10px 14px;
-  color: var(--ink);
-  background: var(--white);
-  border-radius: 14px;
-  box-shadow: 0 14px 34px rgba(7, 40, 90, 0.3);
-}
-
-.float b {
-  display: block;
+.tag {
+  width: fit-content;
+  padding: 7px 16px;
   font-size: 0.85rem;
   font-weight: 500;
+  background: rgba(255, 255, 255, 0.16);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: 999px;
+  backdrop-filter: blur(6px);
 }
 
-.float small {
-  font-size: 0.75rem;
-  color: var(--muted);
+.copy {
+  max-width: 440px;
 }
 
-.float span {
-  display: grid;
-  place-items: center;
-  width: 32px;
-  height: 32px;
+.copy h2 {
+  margin-bottom: 12px;
+  font-size: 2.1rem;
+  line-height: 1.2;
   font-weight: 600;
-  border-radius: 10px;
 }
 
-.float .ok {
-  color: #17794a;
-  background: #e3f6ec;
-}
-
-.float .wait {
-  color: #9a6200;
-  background: #fff3dc;
-}
-
-.f1 {
-  top: 110px;
-  left: 150px;
-}
-
-.f2 {
-  top: 188px;
-  left: 20px;
-}
-
-/* Cahaya fajar (aruna) dari bawah panel */
-.glow {
-  position: absolute;
-  left: 50%;
-  bottom: -260px;
-  width: 620px;
-  height: 620px;
-  transform: translateX(-50%);
-  border-radius: 50%;
-  background: radial-gradient(
-    circle,
-    rgba(255, 255, 255, 0.32) 0%,
-    rgba(255, 255, 255, 0.1) 42%,
-    rgba(255, 255, 255, 0) 70%
-  );
+.copy p {
+  opacity: 0.88;
 }
 
 /* Panel kanan */
@@ -364,6 +188,19 @@ async function handleSubmit() {
   box-shadow: 0 20px 50px rgba(20, 45, 78, 0.08);
 }
 
+.logo-link {
+  display: inline-block;
+  margin-bottom: 22px;
+}
+
+.logo-link img {
+  display: block;
+  width: auto;
+  height: 54px;
+  max-width: 220px;
+  object-fit: contain;
+}
+
 header h1 {
   margin-bottom: 6px;
   font-size: 1.6rem;
@@ -371,7 +208,7 @@ header h1 {
 }
 
 header p {
-  margin-bottom: 28px;
+  margin-bottom: 26px;
   color: var(--muted);
 }
 
@@ -458,53 +295,59 @@ input:focus-visible {
   padding: 10px 12px;
   font-size: 0.85rem;
   color: var(--muted);
-  background: var(--white);
+  background: var(--bg);
   border: 1px dashed var(--line);
   border-radius: 8px;
 }
 
 .back {
   display: inline-block;
-  margin-top: 20px;
+  margin-top: 18px;
   font-size: 0.9rem;
   color: var(--blue);
 }
 
 @media (max-width: 1100px) {
-  .brand { padding: 32px 28px; }
-  .brand-body h2 { font-size: 1.6rem; }
-  .f1 { left: 110px; }
+  .hero {
+    padding: 28px;
+  }
+
+  .copy h2 {
+    font-size: 1.7rem;
+  }
 }
 
+/* Tablet dan HP: gambar jadi banner di atas, form langsung di bawahnya */
 @media (max-width: 820px) {
   .login {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto 1fr;
   }
 
-  .brand {
-    padding: 24px;
-    gap: 16px;
+  .hero {
+    min-height: 170px;
+    padding: 20px;
   }
 
-  .brand-body,
-  .glow {
+  .copy p {
     display: none;
+  }
+
+  .copy h2 {
+    font-size: 1.25rem;
   }
 
   .panel {
     align-items: start;
-    padding: 24px 16px 32px;
+    padding: 20px 16px 32px;
   }
 
   .card {
     padding: 28px 22px;
   }
-   .brand1 img {
-    width: 150px;
-    height: 45px;
 
-    }
+  .logo-link img {
+    height: 48px;
+  }
 }
-
-
 </style>

@@ -1,0 +1,65 @@
+<script setup>
+import { ref, onUnmounted } from "vue";
+import { useCart } from "@/composables/useCart";
+
+const props = defineProps({ item: { type: Object, required: true } });
+
+const cart = useCart();
+const added = ref(false);
+let timer;
+
+function addToCart() {
+  cart.add(props.item);
+  added.value = true;
+  clearTimeout(timer);
+  timer = setTimeout(() => (added.value = false), 1200);
+}
+
+onUnmounted(() => clearTimeout(timer));
+</script>
+
+<template>
+  <button
+    type="button"
+    class="cart"
+    :class="{ done: added }"
+    :aria-label="`Tambahkan ${item.name} ke keranjang`"
+    @click="addToCart"
+  >
+    <svg v-if="!added" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d="M3 4H5L7.5 16H18L21 7H6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
+      <circle cx="9" cy="20" r="1.5" fill="currentColor" />
+      <circle cx="17" cy="20" r="1.5" fill="currentColor" />
+    </svg>
+    <svg v-else viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d="M5 12l5 5 9-10" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" />
+    </svg>
+  </button>
+</template>
+
+<style scoped>
+.cart {
+  width: 38px;
+  height: 38px;
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 50%;
+  color: #0865d8;
+  background: #eaf4ff;
+  cursor: pointer;
+  transition: background 0.2s, color 0.2s;
+}
+.cart:hover {
+  background: #d6e8ff;
+}
+.cart.done {
+  color: #fff;
+  background: #0865d8;
+}
+.cart svg {
+  width: 20px;
+  height: 20px;
+}
+</style>

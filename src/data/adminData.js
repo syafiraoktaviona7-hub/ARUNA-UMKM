@@ -71,7 +71,7 @@ export const sections = {
     actions: [],
   },
   laporan: {
-    title: "Laporan customer", desc: "Keluhan terhadap UMKM atau produk.",
+    title: "Laporan", desc: "Keluhan terhadap UMKM atau produk.",
     data: "laporan", statuses: ["baru", "selesai"],
     columns: [["pelapor", "Pelapor"], ["target", "Dilaporkan"], ["alasan", "Alasan"]],
     actions: [{ label: "Tandai selesai", set: "selesai", when: ["baru"], tone: "ok" }],

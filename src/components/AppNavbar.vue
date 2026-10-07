@@ -1,6 +1,8 @@
 <script setup>
 import { ref, watch, nextTick, onUnmounted } from "vue";
 import { useRoute } from "vue-router";
+import { useCart } from "@/composables/useCart";
+const { count, open } = useCart();
 
 const route = useRoute();
 const active = ref("beranda");
@@ -67,7 +69,7 @@ onUnmounted(() => observer?.disconnect());
               route.name === 'products',
           }"
           >Jelajahi Produk</RouterLink
-        >
+        
         >
         <RouterLink
           to="/#jasa"
@@ -90,20 +92,14 @@ onUnmounted(() => observer?.disconnect());
       </nav>
 
       <div class="nav-actions">
-        <button class="cart-button" type="button" aria-label="Keranjang">
-          <svg viewBox="0 0 24 24" fill="none">
-            <path
-              d="M3 4H5L7.5 16H18L21 7H6"
-              stroke="currentColor"
-              stroke-width="1.8"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-            />
-            <circle cx="9" cy="20" r="1.5" fill="currentColor" />
-            <circle cx="17" cy="20" r="1.5" fill="currentColor" />
-          </svg>
-          <span class="cart-count">0</span>
-        </button>
+        <button class="cart-button" type="button" aria-label="Buka keranjang" @click="open">
+  <svg viewBox="0 0 24 24" fill="none">
+    <path d="M3 4H5L7.5 16H18L21 7H6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
+    <circle cx="9" cy="20" r="1.5" fill="currentColor" />
+    <circle cx="17" cy="20" r="1.5" fill="currentColor" />
+  </svg>
+  <span v-if="count" class="cart-count">{{ count }}</span>
+</button>
 
         <button class="login-button" type="button">Masuk</button>
         <button class="register-button" type="button">Daftar</button>

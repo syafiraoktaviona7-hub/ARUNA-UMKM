@@ -2,6 +2,7 @@
 import { useRoute } from "vue-router";
 import AppNavbar from "@/components/AppNavbar.vue";
 import AppFooter from "@/components/AppFooter.vue";
+import CartDrawer from "@/components/CartDrawer.vue";
 
 const route = useRoute();
 </script>
@@ -10,4 +11,5 @@ const route = useRoute();
   <AppNavbar v-if="!route.meta.bare" />
   <RouterView />
   <AppFooter v-if="!route.meta.bare" />
+  <CartDrawer v-if="!route.meta.bare" />
 </template>

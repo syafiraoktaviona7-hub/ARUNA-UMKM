@@ -4,8 +4,9 @@ import ProdukPage from "@/views/ProdukPage.vue";
 import ArticlePage from "@/views/ArticlePage.vue";
 import NotFoundPage from "@/views/NotFoundPage.vue";
 import { articles } from "@/data/articles";
+import { adminRoutes, installAdminGuard } from "./adminRoutes";
 
-export default createRouter({
+const router = createRouter({
   history: createWebHistory(),
   routes: [
     { path: "/", name: "home", component: HomePage },
@@ -26,6 +27,8 @@ export default createRouter({
         };
       },
     },
+    // Route admin harus sebelum route catch-all di bawah
+    ...adminRoutes,
     // Semua alamat lain yang tidak dikenal
     { path: "/:pathMatch(.*)*", name: "notfound", component: NotFoundPage },
   ],
@@ -45,3 +48,7 @@ export default createRouter({
     return { top: 0 };
   },
 });
+
+installAdminGuard(router);
+
+export default router;

@@ -4,13 +4,14 @@ import { useRoute } from "vue-router";
 import { db, sections } from "@/data/adminData";
 
 const route = useRoute();
-const search = ref("");
+const search = ref(String(route.query.q || ""));
 const status = ref("");
 
 const cfg = computed(() => sections[route.params.section]);
 
-watch(() => route.params.section, () => {
-  search.value = "";
+// Ganti halaman atau datang dari pencarian di topbar (?q=...)
+watch(() => [route.params.section, route.query.q], ([, q]) => {
+  search.value = String(q || "");
   status.value = "";
 });
 
