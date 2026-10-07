@@ -1,5 +1,5 @@
 <script setup>
-import { computed } from "vue";
+import { ref, computed, onMounted, onUnmounted } from "vue";
 import { produkList } from "@/data/produk";
 import { categories } from "@/data/categories";
 import ProdukCard from "./ProdukCard.vue";
@@ -12,8 +12,25 @@ defineEmits(["reset"]);
 
 const category = defineModel("category", { type: String, default: "Semua" });
 
-// 8 produk = 2 baris penuh
-const PREVIEW = 8;
+// Jumlah kolom mengikuti lebar layar, supaya baris selalu penuh
+const calcCols = () => {
+  const w = window.innerWidth;
+  if (w > 1200) return 5;
+  if (w > 900) return 4;
+  if (w > 650) return 3;
+  return 2;
+};
+const cols = ref(calcCols());
+const updateCols = () => {
+  cols.value = calcCols();
+};
+
+onMounted(() => window.addEventListener("resize", updateCols));
+onUnmounted(() => window.removeEventListener("resize", updateCols));
+
+// 2 baris penuh (di HP 3 baris). Desktop: 5 kolom x 2 baris = 10 produk
+const rows = computed(() => (cols.value === 2 ? 3 : 2));
+const perPage = computed(() => cols.value * rows.value);
 
 // "Kota Surabaya" dan "Surabaya" dianggap sama
 const norm = (s = "") =>
@@ -35,7 +52,7 @@ const results = computed(() => {
   );
 });
 
-const preview = computed(() => results.value.slice(0, PREVIEW));
+const preview = computed(() => results.value.slice(0, perPage.value));
 
 // Kata pencarian dibawa ke halaman semua produk
 const seeAll = computed(() => ({
@@ -77,7 +94,11 @@ const areaLabel = computed(
         </RouterLink>
       </div>
 
-      <div v-if="results.length" class="grid">
+      <div
+        v-if="results.length"
+        class="grid"
+        :style="{ gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))` }"
+      >
         <ProdukCard v-for="u in preview" :key="u.id" :item="u" />
       </div>
 
@@ -158,7 +179,6 @@ h2 {
 
 .grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
   gap: 20px;
 }
 
@@ -213,7 +233,6 @@ h2 {
     width: 88%;
   }
   .grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 12px;
   }
 }

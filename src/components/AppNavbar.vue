@@ -1,29 +1,57 @@
+```vue
 <script setup>
 import { ref, watch, nextTick, onUnmounted } from "vue";
 import { useRoute } from "vue-router";
 
 const route = useRoute();
+
 const active = ref("beranda");
 const showRegisterModal = ref(false);
+
+// Cart
+const count = ref(0);
+
+function open() {
+  // Fungsi cart sementara.
+  // Silakan hubungkan ke halaman/cart component jika fitur cart sudah tersedia.
+  console.log("Cart dibuka");
+}
+
 let observer;
 
 function observe() {
   observer?.disconnect();
+
   if (route.name !== "home") return;
 
   observer = new IntersectionObserver(
     (entries) => {
       entries.forEach((e) => {
-        if (e.isIntersecting) active.value = e.target.id;
+        if (e.isIntersecting) {
+          active.value = e.target.id;
+        }
       });
     },
-    { rootMargin: "-40% 0px -55% 0px" },
+    {
+      rootMargin: "-40% 0px -55% 0px",
+    },
   );
 
-  const ids = ["beranda", "kategori", "umkm", "jasa", "tentang", "artikel"];
+  const ids = [
+    "beranda",
+    "kategori",
+    "umkm",
+    "jasa",
+    "tentang",
+    "artikel",
+  ];
+
   ids.forEach((id) => {
     const el = document.getElementById(id);
-    if (el) observer.observe(el);
+
+    if (el) {
+      observer.observe(el);
+    }
   });
 }
 
@@ -33,32 +61,46 @@ watch(
     await nextTick();
     observe();
   },
-  { immediate: true },
+  {
+    immediate: true,
+  },
 );
 
-onUnmounted(() => observer?.disconnect());
+onUnmounted(() => {
+  observer?.disconnect();
+});
 </script>
 
 <template>
   <header class="navbar">
     <div class="navbar-container">
+      <!-- Logo -->
       <RouterLink to="/#beranda" class="brand">
         <img src="/images/aruna-logo.png" alt="Logo ARUNA" />
       </RouterLink>
 
+      <!-- Navigation -->
       <nav class="nav-menu" aria-label="Menu utama">
         <RouterLink
           to="/#beranda"
           class="nav-link"
-          :class="{ active: route.name === 'home' && active === 'beranda' }"
-          >Beranda</RouterLink
+          :class="{
+            active: route.name === 'home' && active === 'beranda',
+          }"
         >
+          Beranda
+        </RouterLink>
+
         <RouterLink
           to="/#kategori"
           class="nav-link"
-          :class="{ active: route.name === 'home' && active === 'kategori' }"
-          >Kategori</RouterLink
+          :class="{
+            active: route.name === 'home' && active === 'kategori',
+          }"
         >
+          Kategori
+        </RouterLink>
+
         <RouterLink
           to="/#umkm"
           class="nav-link"
@@ -67,57 +109,104 @@ onUnmounted(() => observer?.disconnect());
               (route.name === 'home' && active === 'umkm') ||
               route.name === 'products',
           }"
-          >Jelajahi Produk</RouterLink
-        
         >
+          Jelajahi Produk
+        </RouterLink>
+
         <RouterLink
           to="/#jasa"
           class="nav-link"
-          :class="{ active: route.name === 'home' && active === 'jasa' }"
-          >Jelajahi Jasa</RouterLink
+          :class="{
+            active: route.name === 'home' && active === 'jasa',
+          }"
         >
+          Jelajahi Jasa
+        </RouterLink>
+
         <RouterLink
           to="/#tentang"
           class="nav-link"
-          :class="{ active: route.name === 'home' && active === 'tentang' }"
-          >Tentang Kami</RouterLink
+          :class="{
+            active: route.name === 'home' && active === 'tentang',
+          }"
         >
+          Tentang Kami
+        </RouterLink>
+
         <RouterLink
           to="/#artikel"
           class="nav-link"
-          :class="{ active: route.name === 'home' && active === 'artikel' }"
-          >Artikel</RouterLink
+          :class="{
+            active: route.name === 'home' && active === 'artikel',
+          }"
         >
+          Artikel
+        </RouterLink>
       </nav>
 
+      <!-- Actions -->
       <div class="nav-actions">
-        <button class="cart-button" type="button" aria-label="Buka keranjang" @click="open">
-  <svg viewBox="0 0 24 24" fill="none">
-    <path d="M3 4H5L7.5 16H18L21 7H6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
-    <circle cx="9" cy="20" r="1.5" fill="currentColor" />
-    <circle cx="17" cy="20" r="1.5" fill="currentColor" />
-  </svg>
-  <span v-if="count" class="cart-count">{{ count }}</span>
-</button>
+        <!-- Cart -->
+        <button
+          class="cart-button"
+          type="button"
+          aria-label="Buka keranjang"
+          @click="open"
+        >
+          <svg viewBox="0 0 24 24" fill="none">
+            <path
+              d="M3 4H5L7.5 16H18L21 7H6"
+              stroke="currentColor"
+              stroke-width="1.8"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            />
 
-        <button class="login-button" type="button">Masuk</button>
+            <circle
+              cx="9"
+              cy="20"
+              r="1.5"
+              fill="currentColor"
+            />
 
-<button
-  class="register-button"
-  type="button"
-  @click="showRegisterModal = true"
->
-  Daftar
-</button>
+            <circle
+              cx="17"
+              cy="20"
+              r="1.5"
+              fill="currentColor"
+            />
+          </svg>
+
+          <span v-if="count" class="cart-count">
+            {{ count }}
+          </span>
+        </button>
+
+        <!-- Login -->
+        <button
+          class="login-button"
+          type="button"
+        >
+          Masuk
+        </button>
+
+        <!-- Register -->
+        <button
+          class="register-button"
+          type="button"
+          @click="showRegisterModal = true"
+        >
+          Daftar
+        </button>
       </div>
     </div>
   </header>
 
- <RegisterRoleModal
+  <!-- Register Role Modal -->
+  <RegisterRoleModal
     v-if="showRegisterModal"
     @close="showRegisterModal = false"
   />
-
 </template>
 
 <style scoped>
@@ -130,6 +219,7 @@ onUnmounted(() => observer?.disconnect());
   top: 0;
   z-index: 1000;
 }
+
 .navbar-container {
   max-width: 1440px;
   height: 100%;
@@ -140,11 +230,13 @@ onUnmounted(() => observer?.disconnect());
   justify-content: space-between;
   gap: 25px;
 }
+
 .brand {
   display: flex;
   align-items: center;
   flex-shrink: 0;
 }
+
 .brand img {
   width: 150px;
   height: 45px;
@@ -158,6 +250,7 @@ onUnmounted(() => observer?.disconnect());
   align-items: center;
   gap: 27px;
 }
+
 .nav-link {
   height: 100%;
   display: flex;
@@ -168,11 +261,14 @@ onUnmounted(() => observer?.disconnect());
   color: #293c57;
   white-space: nowrap;
   transition: color 0.2s ease;
+  text-decoration: none;
 }
+
 .nav-link:hover,
 .nav-link.active {
   color: #0865d8;
 }
+
 .nav-link.active::after {
   content: "";
   position: absolute;
@@ -199,11 +295,19 @@ onUnmounted(() => observer?.disconnect());
   color: #18385f;
   display: grid;
   place-items: center;
+  cursor: pointer;
+  padding: 0;
 }
+
+.cart-button:hover {
+  color: #0865d8;
+}
+
 .cart-button svg {
   width: 18px;
   height: 18px;
 }
+
 .cart-count {
   position: absolute;
   top: 0;
@@ -216,6 +320,7 @@ onUnmounted(() => observer?.disconnect());
   color: #fff;
   border-radius: 50%;
   font-size: 8px;
+  font-weight: 600;
 }
 
 .login-button,
@@ -229,17 +334,26 @@ onUnmounted(() => observer?.disconnect());
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
 }
+
 .login-button {
   color: #0865d8;
   border: 1px solid #0865d8;
   background: #fff;
 }
+
+.login-button:hover {
+  background: #f1f7ff;
+}
+
 .register-button {
   color: #fff;
   background: #0865d8;
   border: 1px solid #0865d8;
 }
+
 .register-button:hover {
   background: #0754b5;
 }
@@ -249,6 +363,7 @@ onUnmounted(() => observer?.disconnect());
     padding: 0 4%;
     gap: 15px;
   }
+
   .nav-menu {
     gap: 17px;
   }
@@ -259,17 +374,20 @@ onUnmounted(() => observer?.disconnect());
     height: auto;
     min-height: 65px;
   }
+
   .navbar-container {
     min-height: 65px;
     flex-wrap: wrap;
     padding: 10px 4%;
   }
+
   .nav-menu {
     order: 3;
     width: 100%;
     height: 35px;
     justify-content: center;
   }
+
   .nav-link {
     height: 35px;
   }
@@ -279,21 +397,26 @@ onUnmounted(() => observer?.disconnect());
   .navbar-container {
     gap: 10px;
   }
+
   .brand img {
     width: 125px;
   }
+
   .nav-actions {
     gap: 6px;
   }
+
   .login-button,
   .register-button {
     padding: 0 11px;
   }
+
   .nav-menu {
     gap: 16px;
     overflow-x: auto;
     justify-content: flex-start;
   }
+
   .nav-link {
     font-size: 11px;
   }
@@ -303,8 +426,9 @@ onUnmounted(() => observer?.disconnect());
   .nav-menu {
     gap: 12px;
   }
+
   .nav-link {
     font-size: 10px;
   }
 }
-</style>
+```
