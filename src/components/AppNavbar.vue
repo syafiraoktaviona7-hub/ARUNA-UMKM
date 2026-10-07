@@ -2,20 +2,16 @@
 <script setup>
 import { ref, watch, nextTick, onUnmounted } from "vue";
 import { useRoute } from "vue-router";
+import { useCart } from "@/composables/useCart";
+import RegisterRoleModal from "@/components/RegisterRoleModal.vue";
 
 const route = useRoute();
 
+// Cart
+const { count, open } = useCart();
+
 const active = ref("beranda");
 const showRegisterModal = ref(false);
-
-// Cart
-const count = ref(0);
-
-function open() {
-  // Fungsi cart sementara.
-  // Silakan hubungkan ke halaman/cart component jika fitur cart sudah tersedia.
-  console.log("Cart dibuka");
-}
 
 let observer;
 
@@ -74,18 +70,25 @@ onUnmounted(() => {
 <template>
   <header class="navbar">
     <div class="navbar-container">
+
       <!-- Logo -->
       <RouterLink to="/#beranda" class="brand">
-        <img src="/images/aruna-logo.png" alt="Logo ARUNA" />
+        <img
+          src="/images/aruna-logo.png"
+          alt="Logo ARUNA"
+        />
       </RouterLink>
 
       <!-- Navigation -->
       <nav class="nav-menu" aria-label="Menu utama">
+
         <RouterLink
           to="/#beranda"
           class="nav-link"
           :class="{
-            active: route.name === 'home' && active === 'beranda',
+            active:
+              route.name === 'home' &&
+              active === 'beranda',
           }"
         >
           Beranda
@@ -95,7 +98,9 @@ onUnmounted(() => {
           to="/#kategori"
           class="nav-link"
           :class="{
-            active: route.name === 'home' && active === 'kategori',
+            active:
+              route.name === 'home' &&
+              active === 'kategori',
           }"
         >
           Kategori
@@ -106,7 +111,8 @@ onUnmounted(() => {
           class="nav-link"
           :class="{
             active:
-              (route.name === 'home' && active === 'umkm') ||
+              (route.name === 'home' &&
+                active === 'umkm') ||
               route.name === 'products',
           }"
         >
@@ -117,7 +123,9 @@ onUnmounted(() => {
           to="/#jasa"
           class="nav-link"
           :class="{
-            active: route.name === 'home' && active === 'jasa',
+            active:
+              route.name === 'home' &&
+              active === 'jasa',
           }"
         >
           Jelajahi Jasa
@@ -127,7 +135,9 @@ onUnmounted(() => {
           to="/#tentang"
           class="nav-link"
           :class="{
-            active: route.name === 'home' && active === 'tentang',
+            active:
+              route.name === 'home' &&
+              active === 'tentang',
           }"
         >
           Tentang Kami
@@ -137,15 +147,19 @@ onUnmounted(() => {
           to="/#artikel"
           class="nav-link"
           :class="{
-            active: route.name === 'home' && active === 'artikel',
+            active:
+              route.name === 'home' &&
+              active === 'artikel',
           }"
         >
           Artikel
         </RouterLink>
+
       </nav>
 
       <!-- Actions -->
       <div class="nav-actions">
+
         <!-- Cart -->
         <button
           class="cart-button"
@@ -153,7 +167,11 @@ onUnmounted(() => {
           aria-label="Buka keranjang"
           @click="open"
         >
-          <svg viewBox="0 0 24 24" fill="none">
+          <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            aria-hidden="true"
+          >
             <path
               d="M3 4H5L7.5 16H18L21 7H6"
               stroke="currentColor"
@@ -177,7 +195,10 @@ onUnmounted(() => {
             />
           </svg>
 
-          <span v-if="count" class="cart-count">
+          <span
+            v-if="count"
+            class="cart-count"
+          >
             {{ count }}
           </span>
         </button>
@@ -198,6 +219,7 @@ onUnmounted(() => {
         >
           Daftar
         </button>
+
       </div>
     </div>
   </header>
@@ -321,6 +343,7 @@ onUnmounted(() => {
   border-radius: 50%;
   font-size: 8px;
   font-weight: 600;
+  line-height: 1;
 }
 
 .login-button,
@@ -358,6 +381,10 @@ onUnmounted(() => {
   background: #0754b5;
 }
 
+/* =========================
+   TABLET
+========================= */
+
 @media (max-width: 1200px) {
   .navbar-container {
     padding: 0 4%;
@@ -368,6 +395,10 @@ onUnmounted(() => {
     gap: 17px;
   }
 }
+
+/* =========================
+   TABLET / SMALL LAPTOP
+========================= */
 
 @media (max-width: 950px) {
   .navbar {
@@ -392,6 +423,10 @@ onUnmounted(() => {
     height: 35px;
   }
 }
+
+/* =========================
+   MOBILE
+========================= */
 
 @media (max-width: 650px) {
   .navbar-container {
@@ -422,6 +457,10 @@ onUnmounted(() => {
   }
 }
 
+/* =========================
+   SMALL MOBILE
+========================= */
+
 @media (max-width: 380px) {
   .nav-menu {
     gap: 12px;
@@ -431,4 +470,4 @@ onUnmounted(() => {
     font-size: 10px;
   }
 }
-```
+</style>

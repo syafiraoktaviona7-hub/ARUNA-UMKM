@@ -1,3 +1,4 @@
+
 import { createRouter, createWebHistory } from "vue-router";
 
 import HomePage from "@/views/HomePage.vue";
@@ -6,7 +7,6 @@ import ArticlePage from "@/views/ArticlePage.vue";
 import NotFoundPage from "@/views/NotFoundPage.vue";
 import RegisterPage from "@/views/RegisterPage.vue";
 import CustomerRegisterPage from "@/views/CustomerRegisterPage.vue";
-import CheckoutPage from "@/views/CheckoutPage.vue";
 
 import { articles } from "@/data/articles";
 import { adminRoutes, installAdminGuard } from "./adminRoutes";
@@ -25,12 +25,6 @@ const router = createRouter({
             path: "/produk",
             name: "products",
             component: ProdukPage,
-        },
-
-        {
-            path: "/checkout",
-            name: "checkout",
-            component: CheckoutPage,
         },
 
         {
@@ -77,7 +71,7 @@ const router = createRouter({
             },
         },
 
-        // Route admin harus sebelum route catch-all di bawah
+        // Route admin harus sebelum route catch-all
         ...adminRoutes,
 
         // Semua alamat lain yang tidak dikenal
@@ -119,3 +113,6 @@ const router = createRouter({
 installAdminGuard(router);
 
 export default router;
+
+
+
