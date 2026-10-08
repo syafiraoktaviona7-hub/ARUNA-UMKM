@@ -4,16 +4,16 @@ const columns = [
     title: "Jelajahi",
     links: [
       { label: "Kategori", to: "/#kategori" },
-      { label: "Jelajahi Produk", to: "/#umkm" },
+      { label: "Jelajahi Produk", to: "/produk" },
       { label: "Jelajahi Jasa", to: "/#jasa" },
       { label: "Cara kerja", to: "/#carakerja" },
-      { label: "Artikel", to: "/#artikel" },
+      { label: "Artikel", to: "/artikel/1" },
     ],
   },
   {
     title: "Untuk penjual",
     links: [
-      { label: "Daftarkan UMKM", to: "/#penjual" },
+      { label: "Daftarkan UMKM", to: "/register" },
       { label: "Masuk ke toko", to: "/" },
     ],
   },

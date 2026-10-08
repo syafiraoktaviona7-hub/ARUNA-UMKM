@@ -114,7 +114,7 @@ const rupiah = (value) => {
 };
 
 function increaseQty(item) {
-  if (item.qty < 99) {
+  if (item.qty < Math.min(99, item.stok ?? 99)) {
     item.qty++;
   }
 

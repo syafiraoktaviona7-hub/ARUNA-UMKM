@@ -9,6 +9,14 @@ const props = defineProps({
     type: Object,
     required: true,
   },
+  qty: {
+    type: Number,
+    default: 1,
+  },
+  disabled: {
+    type: Boolean,
+    default: false,
+  },
 });
 
 const cart = useCart();
@@ -20,6 +28,8 @@ const showAuthModal = ref(false);
 let timer;
 
 function addToCart() {
+  if (props.disabled) return;
+
   // BELUM LOGIN
   if (!isLoggedIn.value) {
     showAuthModal.value = true;
@@ -27,7 +37,12 @@ function addToCart() {
   }
 
   // SUDAH LOGIN
-  cart.add(props.item);
+  const ok = cart.add(props.item, props.qty);
+
+  if (!ok) {
+    alert("Jumlah di keranjang sudah mencapai stok yang tersedia.");
+    return;
+  }
 
   added.value = true;
 
@@ -37,7 +52,6 @@ function addToCart() {
     added.value = false;
   }, 1200);
 }
-
 function closeAuthModal() {
   showAuthModal.value = false;
 }
@@ -47,13 +61,12 @@ onUnmounted(() => {
 });
 </script>
 
-
-
 <template>
   <button
     type="button"
     class="cart"
     :class="{ done: added }"
+    :disabled="disabled"
     :aria-label="`Tambahkan ${item.name} ke keranjang`"
     @click="addToCart"
   >
@@ -71,19 +84,8 @@ onUnmounted(() => {
         stroke-linejoin="round"
       />
 
-      <circle
-        cx="9"
-        cy="20"
-        r="1.5"
-        fill="currentColor"
-      />
-
-      <circle
-        cx="17"
-        cy="20"
-        r="1.5"
-        fill="currentColor"
-      />
+      <circle cx="9" cy="20" r="1.5" fill="currentColor" />
+      <circle cx="17" cy="20" r="1.5" fill="currentColor" />
     </svg>
 
     <svg
@@ -110,8 +112,8 @@ onUnmounted(() => {
 
 <style scoped>
 .cart {
-  width: 38px;
-  height: 38px;
+  width: 44px;
+  height: 44px;
   flex-shrink: 0;
   display: grid;
   place-items: center;
@@ -122,8 +124,13 @@ onUnmounted(() => {
   cursor: pointer;
   transition: background 0.2s, color 0.2s;
 }
-.cart:hover {
+.cart:hover:not(:disabled) {
   background: #d6e8ff;
+}
+.cart:disabled {
+  color: #9aabc0;
+  background: #edf1f6;
+  cursor: not-allowed;
 }
 .cart.done {
   color: #fff;

@@ -12,7 +12,7 @@ const perks = [
       <div>
         <h2>Punya usaha? Daftarkan UMKM-mu di ARUNA.</h2>
         <p>Biarkan warga di sekitarmu menemukan produkmu.</p>
-        <a href="#" class="btn">Daftar sebagai penjual</a>
+        <a href="/register" class="btn">Daftar sebagai penjual</a>
       </div>
 
       <ul class="perks">

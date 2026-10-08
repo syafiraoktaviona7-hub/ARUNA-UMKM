@@ -13,28 +13,86 @@ const price = computed(() =>
     maximumFractionDigits: 0,
   }).format(props.item.price),
 );
+
+const wa = computed(
+  () =>
+    `https://wa.me/${props.item.whatsapp}?text=` +
+    encodeURIComponent(`Halo, saya tertarik dengan ${props.item.name}`),
+);
 </script>
 
 <template>
   <article class="card">
-    <img
-      v-if="!failed"
-      :src="item.image"
-      :alt="item.name"
-      loading="lazy"
-      @error="failed = true"
-    />
-    <div v-else class="ph" aria-hidden="true">{{ item.name.charAt(0) }}</div>
+    <div class="media">
+      <img
+        v-if="!failed"
+        :src="item.image"
+        :alt="item.name"
+        loading="lazy"
+        @error="failed = true"
+      />
+      <div v-else class="ph" aria-hidden="true">{{ item.name.charAt(0) }}</div>
+    </div>
 
     <div class="body">
-      <h3>{{ item.name }}</h3>
-      <p v-if="item.shop" class="shop">{{ item.shop }}</p>
+      <h3>
+        <RouterLink
+          :to="{ name: 'produk-detail', params: { id: item.id } }"
+          class="link"
+        >
+          {{ item.name }}
+        </RouterLink>
+      </h3>
+
+      <p class="shop">
+        <svg
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.8"
+          stroke-linejoin="round"
+          aria-hidden="true"
+        >
+          <path d="M3 10L5 4H19L21 10" />
+          <path d="M4 10V20H20V10" />
+          <path d="M9 20V14H15V20" />
+        </svg>
+        {{ item.shop }}
+      </p>
       <p class="loc">{{ item.district }}, {{ item.city }}</p>
-      <span class="tag">{{ item.category }}</span>
 
       <div class="foot">
-        <strong class="price">{{ price }}</strong>
-        <AddToCartButton :item="item" />
+        <div class="info">
+          <strong class="price">{{ price }}</strong>
+          <p class="meta">
+            <span>{{ item.sold }} terjual</span>
+            <span class="badge">{{ item.category }}</span>
+          </p>
+        </div>
+
+        <div class="actions">
+          <AddToCartButton :item="item" :disabled="item.stok < 1" />
+          <a
+            :href="wa"
+            target="_blank"
+            rel="noopener"
+            class="wa"
+            :aria-label="`Hubungi ${item.shop} lewat WhatsApp`"
+          >
+            <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <path
+                d="M12 3a9 9 0 0 0-7.8 13.5L3 21l4.6-1.2A9 9 0 1 0 12 3z"
+                stroke="currentColor"
+                stroke-width="1.8"
+                stroke-linejoin="round"
+              />
+              <path
+                d="M9 8.5c0 3.5 3 6.5 6.5 6.5l1-1.5-2-1-1 .8c-1-.4-2-1.4-2.4-2.4l.8-1-1-2z"
+                fill="currentColor"
+              />
+            </svg>
+          </a>
+        </div>
       </div>
     </div>
   </article>
@@ -42,27 +100,34 @@ const price = computed(() =>
 
 <style scoped>
 .card {
+  position: relative;
   display: flex;
   flex-direction: column;
   overflow: hidden;
   background: #fff;
   border: 1px solid #e2ecf8;
-  border-radius: 12px;
-  transition: box-shadow 0.2s;
+  border-radius: 14px;
+  transition:
+    box-shadow 0.2s,
+    transform 0.2s;
 }
 .card:hover {
   box-shadow: 0 10px 26px rgba(36, 91, 153, 0.12);
+  transform: translateY(-3px);
 }
-img,
-.ph {
-  width: 100%;
-  height: 180px;
-}
-img {
-  object-fit: cover;
+
+.media {
+  aspect-ratio: 4 / 3;
   background: #e9f1f8;
 }
+.media img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
 .ph {
+  width: 100%;
+  height: 100%;
   display: grid;
   place-items: center;
   background: linear-gradient(135deg, #cfe5ff, #e9f4ff);
@@ -70,39 +135,63 @@ img {
   font-size: 48px;
   font-weight: 800;
 }
+
 .body {
   flex: 1;
-  padding: 16px;
   display: flex;
   flex-direction: column;
   gap: 6px;
+  padding: 16px;
 }
 h3 {
-  font-size: 16px;
-  font-weight: 600;
   color: #142d4e;
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1.4;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  min-height: 2.8em;
 }
-.shop {
-  font-size: 13px;
-  color: #526982;
+
+/* Perluas area klik ke seluruh kartu */
+.link {
+  color: inherit;
 }
-.loc {
-  font-size: 13px;
-  color: #5c718a;
+.link::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 1;
 }
-.tag {
-  align-self: flex-start;
-  margin-top: 4px;
-  padding: 3px 10px;
-  border-radius: 20px;
-  background: #eaf4ff;
+.card:hover .link {
   color: #0865d8;
-  font-size: 12px;
-  font-weight: 500;
 }
-.foot {
+
+.shop {
   display: flex;
   align-items: center;
+  gap: 6px;
+  color: #526982;
+  font-size: 12px;
+}
+.shop svg {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+  color: #0865d8;
+}
+.loc {
+  color: #7d8fa6;
+  font-size: 12px;
+}
+
+.foot {
+  position: relative;
+  z-index: 2; /* di atas link, supaya tombol keranjang dan WA tetap bisa diklik */
+  display: flex;
+  align-items: flex-end;
   justify-content: space-between;
   gap: 10px;
   margin-top: auto;
@@ -110,8 +199,51 @@ h3 {
   border-top: 1px solid #edf3fa;
 }
 .price {
+  display: block;
   color: #0865d8;
   font-size: 16px;
   font-weight: 800;
+}
+.meta {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 4px;
+  color: #526982;
+  font-size: 12px;
+  font-weight: 500;
+}
+.badge {
+  padding: 2px 8px;
+  border-radius: 20px;
+  background: #eaf4ff;
+  color: #0865d8;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.actions {
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
+}
+.wa {
+  width: 38px;
+  height: 38px;
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: #25d366;
+  color: #fff;
+  transition: background 0.2s;
+}
+.wa:hover {
+  background: #1faa52;
+}
+.wa svg {
+  width: 20px;
+  height: 20px;
 }
 </style>

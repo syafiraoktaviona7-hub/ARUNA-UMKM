@@ -64,7 +64,7 @@ const wa = computed(
         </div>
 
         <div class="actions">
-          <AddToCartButton :item="item" />
+          <AddToCartButton :item="item" :disabled="item.stok < 1" />
           <a
             :href="wa"
             target="_blank"

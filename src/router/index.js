@@ -9,6 +9,9 @@ import CustomerRegisterPage from "@/views/CustomerRegisterPage.vue";
 import LoginPage from "@/views/LoginPage.vue";
 import ProfilePage from "@/views/ProfilePage.vue";
 import CheckoutPage from "@/views/CheckoutPage.vue";
+import ProdukDetailPage from "@/views/ProdukDetailPage.vue";
+import { produkList } from "@/data/produk";
+import UmkmDetailPage from "@/views/UmkmDetailPage.vue";
 
 import { articles } from "@/data/articles";
 import { adminRoutes, installAdminGuard } from "./adminRoutes";
@@ -26,6 +29,36 @@ const router = createRouter({
             path: "/produk",
             name: "products",
             component: ProdukPage,
+        },
+
+                {
+            path: "/produk/:id",
+            name: "produk-detail",
+            component: ProdukDetailPage,
+            beforeEnter: (to) => {
+                const exists = produkList.some(
+                    (p) => String(p.id) === String(to.params.id),
+                );
+
+                if (exists) {
+                    return true;
+                }
+
+                return {
+                    name: "notfound",
+                    params: {
+                        pathMatch: to.path.substring(1).split("/"),
+                    },
+                    query: to.query,
+                    hash: to.hash,
+                };
+            },
+        },
+
+                {
+            path: "/umkm/:id",
+            name: "umkm-detail",
+            component: UmkmDetailPage,
         },
 
         {

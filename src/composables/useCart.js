@@ -1,6 +1,7 @@
 import { reactive, computed, watch } from "vue";
 
 const STORAGE_KEY = "aruna_cart";
+const MAX_QTY = 99;
 
 function load() {
   try {
@@ -28,6 +29,10 @@ watch(
 
 const keyOf = (item) => String(item.id ?? `${item.shop}|${item.name}`);
 
+// Batas jumlah per produk: stok (kalau ada) tapi tidak lebih dari MAX_QTY
+const limitOf = (stok) =>
+  Math.max(0, Math.min(MAX_QTY, Number.isFinite(stok) ? stok : MAX_QTY));
+
 export function useCart() {
   const items = computed(() => state.items);
   const isOpen = computed(() => state.open);
@@ -46,22 +51,36 @@ export function useCart() {
     return [...map.values()];
   });
 
-  function add(item) {
+  // Tambah ke keranjang sebanyak qty. Mengembalikan true kalau ada yang bertambah,
+  // false kalau stok habis atau jumlah di keranjang sudah mencapai batas.
+  function add(item, qty = 1) {
     const key = keyOf(item);
+    const max = limitOf(item.stok);
+    const jumlah = Math.max(1, Math.floor(Number(qty)) || 1);
     const found = state.items.find((i) => i.key === key);
+
     if (found) {
-      found.qty = Math.min(found.qty + 1, 99);
-    } else {
-      state.items.push({
-        key,
-        name: item.name,
-        price: item.price,
-        image: item.image,
-        shop: item.shop,
-        whatsapp: item.whatsapp,
-        qty: 1,
-      });
+      found.stok = max;
+      const next = Math.min(found.qty + jumlah, max);
+      if (next <= found.qty) return false;
+      found.qty = next;
+      return true;
     }
+
+    if (max < 1) return false;
+
+    state.items.push({
+      key,
+      id: item.id,
+      name: item.name,
+      price: item.price,
+      image: item.image,
+      shop: item.shop,
+      whatsapp: item.whatsapp,
+      stok: max,
+      qty: Math.min(jumlah, max),
+    });
+    return true;
   }
 
   function remove(key) {
@@ -71,7 +90,7 @@ export function useCart() {
   function setQty(key, qty) {
     if (qty <= 0) return remove(key);
     const found = state.items.find((i) => i.key === key);
-    if (found) found.qty = Math.min(qty, 99);
+    if (found) found.qty = Math.min(qty, limitOf(found.stok));
   }
 
   const clear = () => (state.items = []);

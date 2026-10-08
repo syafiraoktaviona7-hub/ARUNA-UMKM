@@ -3,6 +3,14 @@ import { ref } from "vue";
 import { useRouter } from "vue-router";
 import RegisterRoleModal from "@/components/RegisterRoleModal.vue";
 
+defineProps({
+  message: {
+    type: String,
+    default:
+      "Anda perlu masuk atau mendaftar akun terlebih dahulu untuk dapat memasukkan produk ke keranjang.",
+  },
+});
+
 const emit = defineEmits(["close"]);
 
 const router = useRouter();
@@ -18,13 +26,15 @@ function goToLogin() {
   router.push("/login");
 }
 
+// Jangan emit("close") di sini, supaya komponen tetap hidup
+// dan RegisterRoleModal bisa tampil
 function goToRegister() {
-  emit("close");
   showRegisterModal.value = true;
 }
 
 function closeRegisterModal() {
   showRegisterModal.value = false;
+  emit("close");
 }
 </script>
 
@@ -60,10 +70,7 @@ function closeRegisterModal() {
         <div class="auth-content">
           <h2>Masuk atau Daftar Terlebih Dahulu</h2>
 
-          <p>
-            Anda perlu masuk atau mendaftar akun terlebih dahulu
-            untuk dapat memasukkan produk ke keranjang.
-          </p>
+          <p>{{ message }}</p>
         </div>
 
         <!-- BUTTON -->

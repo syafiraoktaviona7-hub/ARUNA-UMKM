@@ -20,8 +20,31 @@ const {
   reset: resetWilayah,
 } = useWilayahFilter();
 
-const jenisOptions = ["Fast Food Lokal", "Frozen Food", "Kuliner Lainnya"];
-const jenis = ref([]);
+const kategoriOptions = [
+  "Makanan",
+  "Minuman",
+  "Fashion & Aksesorisnya",
+  "Sembako",
+  "Sayur dan Buah",
+];
+const fromQuery = (v) =>
+  typeof v === "string" && v ? [v] : Array.isArray(v) ? v.filter(Boolean) : [];
+
+const kategori = ref(fromQuery(route.query.kategori));
+
+// Query berubah saat halaman sudah terbuka (klik kategori dari beranda atau breadcrumb)
+watch(
+  () => route.query.kategori,
+  (v) => {
+    kategori.value = fromQuery(v);
+  },
+);
+watch(
+  () => route.query.q,
+  (v) => {
+    q.value = typeof v === "string" ? v : "";
+  },
+);
 const minPrice = ref("");
 const maxPrice = ref("");
 const sort = ref("harga-asc");
@@ -50,7 +73,7 @@ const results = computed(() => {
       (!province || norm(p.province) === norm(province)) &&
       (!city || norm(p.city) === norm(city)) &&
       (!district || norm(p.district) === norm(district)) &&
-      (!jenis.value.length || jenis.value.includes(p.jenis)) &&
+      (!kategori.value.length || kategori.value.includes(p.category)) &&
       (min === null || p.price >= min) &&
       (max === null || p.price <= max) &&
       (!s || `${p.name} ${p.shop}`.toLowerCase().includes(s)),
@@ -71,7 +94,7 @@ watch(results, () => {
 
 function resetFilters() {
   resetWilayah();
-  jenis.value = [];
+  kategori.value = [];
   minPrice.value = "";
   maxPrice.value = "";
 }
@@ -162,12 +185,12 @@ const toResults = () =>
         </div>
 
         <div class="f-block">
-          <h2>Jenis Makanan</h2>
-          <label v-for="j in jenisOptions" :key="j" class="check">
-            <input v-model="jenis" type="checkbox" :value="j" />
-            <span>{{ j }}</span>
-          </label>
-        </div>
+  <h2>Kategori</h2>
+  <label v-for="k in kategoriOptions" :key="k" class="check">
+    <input v-model="kategori" type="checkbox" :value="k" />
+    <span>{{ k }}</span>
+  </label>
+</div>
 
         <div class="f-block">
           <h2>Harga</h2>

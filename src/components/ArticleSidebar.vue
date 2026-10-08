@@ -11,13 +11,13 @@ const slides = [
     title: "Daftarkan UMKM-mu di ARUNA",
     text: "Biarkan warga di sekitarmu menemukan produkmu.",
     cta: "Daftar sebagai penjual",
-    to: "/#penjual",
+    to: "/register",
   },
   {
     title: "Temukan UMKM terdekat",
     text: "Pilih provinsi, kota, dan kecamatan untuk melihat usaha di sekitarmu.",
     cta: "Jelajahi UMKM",
-    to: "/#umkm",
+    to: "/produk",
   },
   {
     title: "Dukung produk lokal",

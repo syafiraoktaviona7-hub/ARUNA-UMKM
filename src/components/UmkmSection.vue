@@ -111,12 +111,6 @@ const areaLabel = computed(
           Tampilkan semua produk
         </button>
       </div>
-
-      <div class="more-row">
-        <RouterLink :to="seeAll" class="more-btn">
-          Lihat Semua Produk <span aria-hidden="true">→</span>
-        </RouterLink>
-      </div>
     </div>
   </section>
 </template>
