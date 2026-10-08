@@ -1,9 +1,12 @@
 <script setup>
 import { ref, computed } from "vue";
 import { categoryCards } from "@/data/categories";
+import { produkList } from "@/data/produk";
 
 const category = defineModel("category", { type: String, default: "Semua" });
 const catSearch = ref("");
+
+const countOf = (name) => produkList.filter((p) => p.category === name).length;
 
 const filteredCards = computed(() =>
   categoryCards.filter((c) =>
@@ -26,7 +29,7 @@ function pick(name) {
       </div>
 
       <div class="category-search">
-        <svg viewBox="0 0 24 24" fill="none">
+        <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
           <circle
             cx="10.8"
             cy="10.8"
@@ -41,11 +44,16 @@ function pick(name) {
             stroke-linecap="round"
           />
         </svg>
-        <input v-model="catSearch" type="text" placeholder="Cari kategori..." />
+        <input
+          v-model="catSearch"
+          type="text"
+          placeholder="Cari kategori..."
+          aria-label="Cari kategori"
+        />
         <button type="button">Cari</button>
       </div>
 
-      <div class="category-grid">
+      <div v-if="filteredCards.length" class="category-grid">
         <button
           v-for="c in filteredCards"
           :key="c.name"
@@ -55,18 +63,23 @@ function pick(name) {
           :aria-pressed="category === c.name"
           @click="pick(c.name)"
         >
-          <div class="category-image">
-            <img :src="c.image" :alt="c.name" />
-          </div>
-          <div class="category-card-content">
-            <div>
-              <h3>{{ c.name }}</h3>
-              <p>{{ c.count }}</p>
-            </div>
-            <span class="category-arrow">→</span>
-          </div>
+          <span class="cat-icon" :style="{ background: c.bg, color: c.color }">
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.8"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              aria-hidden="true"
+              v-html="c.icon"
+            ></svg>
+          </span>
+          <strong>{{ c.name }}</strong>
+          <span class="cat-count">{{ countOf(c.name) }} produk</span>
         </button>
       </div>
+      <p v-else class="cat-empty">Kategori tidak ditemukan.</p>
 
       <div class="category-banner">
         <div class="category-banner-content">
@@ -166,6 +179,7 @@ function pick(name) {
   background: #0755b7;
 }
 
+/* KARTU KATEGORI (IKON) */
 .category-grid {
   display: grid;
   grid-template-columns: repeat(5, minmax(0, 1fr));
@@ -175,15 +189,16 @@ function pick(name) {
 
 .category-card {
   min-width: 0;
-  padding: 0;
-  overflow: hidden;
+  padding: 26px 16px 22px;
   display: flex;
   flex-direction: column;
-  text-align: left;
+  align-items: center;
+  gap: 8px;
+  text-align: center;
   color: inherit;
   background: #fff;
   border: 1px solid #e5edf7;
-  border-radius: 13px;
+  border-radius: 16px;
   box-shadow: 0 8px 22px rgba(36, 91, 153, 0.06);
   transition:
     transform 0.2s ease,
@@ -199,56 +214,35 @@ function pick(name) {
   box-shadow: 0 0 0 2px rgba(8, 101, 216, 0.25);
 }
 
-.category-image {
-  width: 100%;
-  height: 190px;
-  overflow: hidden;
-  background: #e9f1f8;
+.cat-icon {
+  width: 64px;
+  height: 64px;
+  display: grid;
+  place-items: center;
+  margin-bottom: 4px;
+  border-radius: 16px;
 }
-.category-image img {
-  display: block;
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  transition: transform 0.3s ease;
+.cat-icon svg {
+  width: 32px;
+  height: 32px;
 }
-.category-card:hover .category-image img {
-  transform: scale(1.04);
-}
-
-.category-card-content {
-  min-height: 82px;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 12px 20px;
-}
-.category-card-content h3 {
+.category-card strong {
   color: #142d4e;
-  font-size: 17px;
+  font-size: 15px;
   font-weight: 700;
   line-height: 1.4;
 }
-.category-card-content p {
+.cat-count {
   color: #72849b;
-  font-size: 13px;
-  margin-top: 1px;
+  font-size: 12px;
 }
-.category-arrow {
-  width: 44px;
-  height: 44px;
-  flex-shrink: 0;
-  margin-left: auto;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: #0865d8;
-  background: #f0f7ff;
-  border: 1px solid #e0edfc;
-  border-radius: 12px;
-  font-size: 22px;
+.cat-empty {
+  margin-bottom: 34px;
+  color: #647994;
+  font-size: 14px;
 }
 
+/* BANNER */
 .category-banner {
   min-height: 202px;
   width: 100%;
@@ -377,23 +371,19 @@ function pick(name) {
     gap: 12px;
     margin-bottom: 24px;
   }
-  .category-image {
-    height: 130px;
+  .category-card {
+    padding: 20px 10px 16px;
   }
-  .category-card-content {
-    min-height: 68px;
-    padding: 9px 10px;
+  .cat-icon {
+    width: 52px;
+    height: 52px;
   }
-  .category-card-content h3 {
+  .cat-icon svg {
+    width: 26px;
+    height: 26px;
+  }
+  .category-card strong {
     font-size: 13px;
-  }
-  .category-card-content p {
-    font-size: 10px;
-  }
-  .category-arrow {
-    width: 32px;
-    height: 32px;
-    font-size: 17px;
   }
   .category-banner {
     min-height: 260px;

@@ -1,21 +1,14 @@
-```vue
 <script setup>
-import {
-  ref,
-  watch,
-  nextTick,
-  onMounted,
-  onUnmounted,
-} from "vue";
+import { ref, watch, nextTick, onMounted, onUnmounted } from "vue";
 import { useRoute } from "vue-router";
 import { useCart } from "@/composables/useCart";
-import RegisterRoleModal from "@/components/RegisterRoleModal.vue";
 import { useAuth } from "@/composables/useAuth";
+import RegisterRoleModal from "@/components/RegisterRoleModal.vue";
 
 const route = useRoute();
 
 // Cart
-const { count, open } = useCart();
+const { count, open, close } = useCart();
 
 // Auth
 const { user, isLoggedIn, logout } = useAuth();
@@ -23,6 +16,22 @@ const { user, isLoggedIn, logout } = useAuth();
 const active = ref("beranda");
 const showRegisterModal = ref(false);
 const showUserMenu = ref(false);
+const showMobileMenu = ref(false);
+
+// Daftar menu (dipakai oleh menu desktop dan menu HP)
+const links = [
+  { label: "Beranda", to: "/#beranda", id: "beranda" },
+  { label: "Kategori", to: "/#kategori", id: "kategori" },
+  { label: "Jelajahi Produk", to: "/#umkm", id: "umkm" },
+  { label: "Jelajahi Jasa", to: "/#jasa", id: "jasa" },
+  { label: "Tentang Kami", to: "/#tentang", id: "tentang" },
+  { label: "Artikel", to: "/#artikel", id: "artikel" },
+];
+
+function isActive(l) {
+  if (l.id === "umkm" && route.name === "products") return true;
+  return route.name === "home" && active.value === l.id;
+}
 
 let observer;
 
@@ -34,12 +43,39 @@ function closeUserMenu() {
   showUserMenu.value = false;
 }
 
-function handleOutsideClick(event) {
-  const userMenu = event.target.closest(".user-menu");
+function toggleMobileMenu() {
+  showMobileMenu.value = !showMobileMenu.value;
+}
 
-  if (!userMenu) {
+function closeMobileMenu() {
+  showMobileMenu.value = false;
+}
+
+function openRegister() {
+  closeMobileMenu();
+  showRegisterModal.value = true;
+}
+
+function handleLogout() {
+  closeUserMenu();
+  closeMobileMenu();
+  logout();
+}
+
+function handleOutsideClick(event) {
+  if (!event.target.closest(".user-menu")) closeUserMenu();
+  if (!event.target.closest(".navbar")) closeMobileMenu();
+}
+
+function handleEscape(event) {
+  if (event.key === "Escape") {
     closeUserMenu();
+    closeMobileMenu();
   }
+}
+
+function handleResize() {
+  if (window.innerWidth > 950) closeMobileMenu();
 }
 
 function observe() {
@@ -55,154 +91,82 @@ function observe() {
         }
       });
     },
-    {
-      rootMargin: "-40% 0px -55% 0px",
-    },
+    { rootMargin: "-40% 0px -55% 0px" },
   );
 
-  const ids = [
-    "beranda",
-    "kategori",
-    "umkm",
-    "jasa",
-    "tentang",
-    "artikel",
-  ];
-
-  ids.forEach((id) => {
-    const el = document.getElementById(id);
-
-    if (el) {
-      observer.observe(el);
-    }
+  links.forEach((l) => {
+    const el = document.getElementById(l.id);
+    if (el) observer.observe(el);
   });
 }
 
 watch(
   () => route.name,
-  async () => {
+  async (name) => {
     await nextTick();
     observe();
+
+    // Halaman 404: keranjang tidak ditampilkan sama sekali
+    if (name === "notfound") close?.();
   },
-  {
-    immediate: true,
+  { immediate: true },
+);
+
+// Tutup semua menu setiap pindah halaman atau bagian
+watch(
+  () => route.fullPath,
+  () => {
+    closeUserMenu();
+    closeMobileMenu();
   },
 );
 
 onMounted(() => {
   document.addEventListener("click", handleOutsideClick);
+  document.addEventListener("keydown", handleEscape);
+  window.addEventListener("resize", handleResize);
 });
 
 onUnmounted(() => {
   observer?.disconnect();
+  document.removeEventListener("click", handleOutsideClick);
+  document.removeEventListener("keydown", handleEscape);
+  window.removeEventListener("resize", handleResize);
 });
 </script>
 
 <template>
   <header class="navbar">
     <div class="navbar-container">
-
       <!-- Logo -->
       <RouterLink to="/#beranda" class="brand">
-        <img
-          src="/images/aruna-logo.png"
-          alt="Logo ARUNA"
-        />
+        <img src="/images/aruna-logo.png" alt="Logo ARUNA" />
       </RouterLink>
 
-      <!-- Navigation -->
+      <!-- Navigation (desktop) -->
       <nav class="nav-menu" aria-label="Menu utama">
-
         <RouterLink
-          to="/#beranda"
+          v-for="l in links"
+          :key="l.id"
+          :to="l.to"
           class="nav-link"
-          :class="{
-            active:
-              route.name === 'home' &&
-              active === 'beranda',
-          }"
+          :class="{ active: isActive(l) }"
         >
-          Beranda
+          {{ l.label }}
         </RouterLink>
-
-        <RouterLink
-          to="/#kategori"
-          class="nav-link"
-          :class="{
-            active:
-              route.name === 'home' &&
-              active === 'kategori',
-          }"
-        >
-          Kategori
-        </RouterLink>
-
-        <RouterLink
-          to="/#umkm"
-          class="nav-link"
-          :class="{
-            active:
-              (route.name === 'home' &&
-                active === 'umkm') ||
-              route.name === 'products',
-          }"
-        >
-          Jelajahi Produk
-        </RouterLink>
-
-        <RouterLink
-          to="/#jasa"
-          class="nav-link"
-          :class="{
-            active:
-              route.name === 'home' &&
-              active === 'jasa',
-          }"
-        >
-          Jelajahi Jasa
-        </RouterLink>
-
-        <RouterLink
-          to="/#tentang"
-          class="nav-link"
-          :class="{
-            active:
-              route.name === 'home' &&
-              active === 'tentang',
-          }"
-        >
-          Tentang Kami
-        </RouterLink>
-
-        <RouterLink
-          to="/#artikel"
-          class="nav-link"
-          :class="{
-            active:
-              route.name === 'home' &&
-              active === 'artikel',
-          }"
-        >
-          Artikel
-        </RouterLink>
-
       </nav>
 
       <!-- Actions -->
       <div class="nav-actions">
-
-        <!-- Cart -->
+        <!-- Cart (disembunyikan di halaman 404) -->
         <button
+          v-if="route.name !== 'notfound'"
           class="cart-button"
           type="button"
           aria-label="Buka keranjang"
           @click="open"
         >
-          <svg
-            viewBox="0 0 24 24"
-            fill="none"
-            aria-hidden="true"
-          >
+          <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
             <path
               d="M3 4H5L7.5 16H18L21 7H6"
               stroke="currentColor"
@@ -210,129 +174,183 @@ onUnmounted(() => {
               stroke-linecap="round"
               stroke-linejoin="round"
             />
-
-            <circle
-              cx="9"
-              cy="20"
-              r="1.5"
-              fill="currentColor"
-            />
-
-            <circle
-              cx="17"
-              cy="20"
-              r="1.5"
-              fill="currentColor"
-            />
+            <circle cx="9" cy="20" r="1.5" fill="currentColor" />
+            <circle cx="17" cy="20" r="1.5" fill="currentColor" />
           </svg>
 
-          <span
-            v-if="count"
-            class="cart-count"
-          >
-            {{ count }}
-          </span>
+          <span v-if="count" class="cart-count">{{ count }}</span>
         </button>
 
-  <!-- Login & Register -->
-<template v-if="!isLoggedIn">
+        <!-- Login / profil (desktop) -->
+        <div class="auth-desktop">
+          <template v-if="!isLoggedIn">
+            <RouterLink to="/login" class="login-button">Masuk</RouterLink>
 
-  <RouterLink
-    to="/login"
-    class="login-button"
-  >
-    Masuk
-  </RouterLink>
+            <button
+              class="register-button"
+              type="button"
+              @click="showRegisterModal = true"
+            >
+              Daftar
+            </button>
+          </template>
 
-  <button
-    class="register-button"
-    type="button"
-    @click="showRegisterModal = true"
-  >
-    Daftar
-  </button>
+          <div v-else class="user-menu">
+            <button
+              class="user-info"
+              type="button"
+              :aria-expanded="showUserMenu"
+              aria-label="Buka menu profil"
+              @click.stop="toggleUserMenu"
+            >
+              <div class="user-avatar">
+                <img v-if="user?.photo" :src="user.photo" :alt="user?.name" />
+                <span v-else>{{ user?.name?.charAt(0).toUpperCase() }}</span>
+              </div>
 
-</template>
+              <div class="user-name">{{ user?.name }}</div>
 
-<!-- Customer yang sudah login -->
-<template v-else>
+              <span class="user-chevron" :class="{ open: showUserMenu }"
+                >↓</span
+              >
+            </button>
 
-  <div class="user-menu">
+            <Transition name="profile-dropdown">
+              <div v-if="showUserMenu" class="profile-dropdown">
+                <RouterLink
+                  to="/profil"
+                  class="profile-menu-item"
+                  @click="closeUserMenu"
+                >
+                  <span class="profile-menu-icon">👤</span>
+                  <span>Profil Saya</span>
+                </RouterLink>
 
-    <!-- Tombol nama customer -->
-    <button
-      class="user-info"
-      type="button"
-      @click.stop="toggleUserMenu"
-      :aria-expanded="showUserMenu"
-      aria-label="Buka menu profil"
-    >
-      <div class="user-avatar">
-  <img
-    v-if="user?.photo"
-    :src="user.photo"
-    :alt="user?.name"
-  />
+                <button class="profile-menu-item" type="button">
+                  <span class="profile-menu-icon">📦</span>
+                  <span>Riwayat Pesanan</span>
+                </button>
 
-  <span v-else>
-    {{ user?.name?.charAt(0).toUpperCase() }}
-  </span>
-</div>
+                <button class="profile-menu-item" type="button">
+                  <span class="profile-menu-icon">♡</span>
+                  <span>Produk Favorit</span>
+                </button>
 
-      <div class="user-name">
-        {{ user?.name }}
-      </div>
+                <div class="profile-divider"></div>
 
-      <span
-        class="user-chevron"
-        :class="{ open: showUserMenu }"
-      >
-        ↓
-      </span>
-    </button>
+                <button
+                  class="profile-menu-item logout"
+                  type="button"
+                  @click="handleLogout"
+                >
+                  <span class="profile-menu-icon">↩</span>
+                  <span>Keluar</span>
+                </button>
+              </div>
+            </Transition>
+          </div>
+        </div>
 
-    <!-- Dropdown profil -->
-    <Transition name="profile-dropdown">
-      <div
-        v-if="showUserMenu"
-        class="profile-dropdown"
-      >
-
-       <RouterLink
-  to="/profil"
-  class="profile-menu-item"
-  @click="closeUserMenu"
->
-  <span class="profile-menu-icon">👤</span>
-  <span>Profil Saya</span>
-</RouterLink>
-
+        <!-- Tombol menu (HP) -->
         <button
-          class="profile-menu-item"
+          class="burger"
           type="button"
+          :class="{ open: showMobileMenu }"
+          :aria-expanded="showMobileMenu"
+          aria-controls="mobile-menu"
+          :aria-label="showMobileMenu ? 'Tutup menu' : 'Buka menu'"
+          @click.stop="toggleMobileMenu"
         >
-          <span class="profile-menu-icon">📦</span>
-          <span>Riwayat Pesanan</span>
+          <span></span>
+          <span></span>
+          <span></span>
         </button>
-
-        <button
-          class="profile-menu-item"
-          type="button"
-        >
-          <span class="profile-menu-icon">♡</span>
-          <span>Produk Favorit</span>
-        </button>
-
-      </div>
-    </Transition>
-
-  </div>
-
-</template>
-
       </div>
     </div>
+
+    <!-- Panel menu (HP): muncul ke bawah -->
+    <Transition name="mobile-menu">
+      <div v-if="showMobileMenu" id="mobile-menu" class="mobile-panel">
+        <nav class="mobile-nav" aria-label="Menu utama">
+          <RouterLink
+            v-for="l in links"
+            :key="l.id"
+            :to="l.to"
+            class="mobile-link"
+            :class="{ active: isActive(l) }"
+            @click="closeMobileMenu"
+          >
+            {{ l.label }}
+          </RouterLink>
+        </nav>
+
+        <div class="mobile-auth">
+          <!-- Belum login -->
+          <div v-if="!isLoggedIn" class="mobile-auth-buttons">
+            <RouterLink
+              to="/login"
+              class="m-btn outline"
+              @click="closeMobileMenu"
+            >
+              Masuk
+            </RouterLink>
+            <button class="m-btn solid" type="button" @click="openRegister">
+              Daftar
+            </button>
+          </div>
+
+          <!-- Sudah login -->
+          <template v-else>
+            <div class="m-user">
+              <div class="user-avatar">
+                <img v-if="user?.photo" :src="user.photo" :alt="user?.name" />
+                <span v-else>{{ user?.name?.charAt(0).toUpperCase() }}</span>
+              </div>
+              <div class="m-user-name">{{ user?.name }}</div>
+            </div>
+
+            <RouterLink
+              to="/profil"
+              class="profile-menu-item"
+              @click="closeMobileMenu"
+            >
+              <span class="profile-menu-icon">👤</span>
+              <span>Profil Saya</span>
+            </RouterLink>
+
+            <button class="profile-menu-item" type="button">
+              <span class="profile-menu-icon">📦</span>
+              <span>Riwayat Pesanan</span>
+            </button>
+
+            <button class="profile-menu-item" type="button">
+              <span class="profile-menu-icon">♡</span>
+              <span>Produk Favorit</span>
+            </button>
+
+            <button
+              class="profile-menu-item logout"
+              type="button"
+              @click="handleLogout"
+            >
+              <span class="profile-menu-icon">↩</span>
+              <span>Keluar</span>
+            </button>
+          </template>
+        </div>
+      </div>
+    </Transition>
   </header>
+
+  <!-- Latar gelap di belakang panel menu (HP) -->
+  <Transition name="fade">
+    <div
+      v-if="showMobileMenu"
+      class="mobile-overlay"
+      aria-hidden="true"
+      @click="closeMobileMenu"
+    ></div>
+  </Transition>
 
   <!-- Register Role Modal -->
   <RegisterRoleModal
@@ -417,6 +435,16 @@ onUnmounted(() => {
   align-items: center;
   gap: 10px;
 }
+
+.auth-desktop {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+/* =========================
+   USER MENU
+========================= */
 
 .user-menu {
   position: relative;
@@ -543,6 +571,22 @@ onUnmounted(() => {
   font-size: 15px;
 }
 
+.profile-divider {
+  height: 1px;
+  margin: 6px 4px;
+  background: #edf3fa;
+}
+
+.profile-menu-item.logout,
+.profile-menu-item.logout .profile-menu-icon {
+  color: #c62828;
+}
+
+.profile-menu-item.logout:hover {
+  background: #fdecec;
+  color: #c62828;
+}
+
 /* =========================
    DROPDOWN ANIMATION
 ========================= */
@@ -560,6 +604,10 @@ onUnmounted(() => {
   opacity: 0;
   transform: translateY(-7px) scale(0.98);
 }
+
+/* =========================
+   CART
+========================= */
 
 .cart-button {
   position: relative;
@@ -599,6 +647,10 @@ onUnmounted(() => {
   line-height: 1;
 }
 
+/* =========================
+   LOGIN / REGISTER
+========================= */
+
 .login-button,
 .register-button {
   height: 30px;
@@ -611,6 +663,7 @@ onUnmounted(() => {
   align-items: center;
   justify-content: center;
   cursor: pointer;
+  text-decoration: none;
   transition: all 0.2s ease;
 }
 
@@ -635,7 +688,112 @@ onUnmounted(() => {
 }
 
 /* =========================
-   TABLET
+   TOMBOL MENU (HP)
+========================= */
+
+.burger {
+  display: none;
+  position: relative;
+  width: 40px;
+  height: 40px;
+  flex-shrink: 0;
+  border: 1px solid #dce8f6;
+  border-radius: 10px;
+  background: #fff;
+  cursor: pointer;
+  transition:
+    background 0.2s ease,
+    border-color 0.2s ease;
+}
+
+.burger:hover {
+  background: #f1f7ff;
+  border-color: #bcd5f2;
+}
+
+.burger span {
+  position: absolute;
+  left: 50%;
+  width: 18px;
+  height: 2px;
+  margin-left: -9px;
+  border-radius: 2px;
+  background: #18385f;
+  transition:
+    transform 0.25s ease,
+    top 0.25s ease,
+    opacity 0.2s ease;
+}
+
+.burger span:nth-child(1) {
+  top: 12px;
+}
+
+.burger span:nth-child(2) {
+  top: 19px;
+}
+
+.burger span:nth-child(3) {
+  top: 26px;
+}
+
+.burger.open {
+  background: #eaf4ff;
+  border-color: #0865d8;
+}
+
+.burger.open span {
+  background: #0865d8;
+}
+
+.burger.open span:nth-child(1) {
+  top: 19px;
+  transform: rotate(45deg);
+}
+
+.burger.open span:nth-child(2) {
+  opacity: 0;
+}
+
+.burger.open span:nth-child(3) {
+  top: 19px;
+  transform: rotate(-45deg);
+}
+
+/* =========================
+   PANEL MENU (HP)
+========================= */
+
+.mobile-panel,
+.mobile-overlay {
+  display: none;
+}
+
+.mobile-menu-enter-active,
+.mobile-menu-leave-active {
+  transition:
+    opacity 0.2s ease,
+    transform 0.2s ease;
+}
+
+.mobile-menu-enter-from,
+.mobile-menu-leave-to {
+  opacity: 0;
+  transform: translateY(-8px);
+}
+
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity 0.2s ease;
+}
+
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
+}
+
+/* =========================
+   TABLET / HP
 ========================= */
 
 @media (max-width: 1200px) {
@@ -649,37 +807,170 @@ onUnmounted(() => {
   }
 }
 
-/* =========================
-   TABLET / SMALL LAPTOP
-========================= */
-
 @media (max-width: 950px) {
   .navbar {
-    height: auto;
-    min-height: 65px;
+    height: 64px;
   }
 
   .navbar-container {
-    min-height: 65px;
-    flex-wrap: wrap;
-    padding: 10px 4%;
+    flex-wrap: nowrap;
+    padding: 0 4%;
+    gap: 12px;
   }
 
-  .nav-menu {
-    order: 3;
-    width: 100%;
-    height: 35px;
+  .nav-menu,
+  .auth-desktop {
+    display: none;
+  }
+
+  .nav-actions {
+    gap: 8px;
+    margin-left: auto;
+  }
+
+  .burger {
+    display: inline-block;
+  }
+
+  .mobile-panel {
+    display: block;
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    max-height: calc(100vh - 64px);
+    overflow-y: auto;
+    padding: 8px 4% 22px;
+    background: #fff;
+    border-bottom: 1px solid #e8eff8;
+    box-shadow: 0 18px 30px rgba(24, 56, 95, 0.14);
+  }
+
+  .mobile-overlay {
+    display: block;
+    position: fixed;
+    inset: 64px 0 0 0;
+    z-index: 900;
+    background: rgba(20, 45, 78, 0.35);
+  }
+
+  .mobile-nav {
+    display: grid;
+  }
+
+  .mobile-link {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 15px 14px;
+    border-bottom: 1px solid #f0f5fb;
+    border-radius: 10px;
+    color: #293c57;
+    font-size: 15px;
+    font-weight: 500;
+    text-decoration: none;
+    transition:
+      background 0.2s ease,
+      color 0.2s ease;
+  }
+
+  .mobile-link::after {
+    content: "›";
+    color: #9aabc0;
+    font-size: 22px;
+    line-height: 1;
+  }
+
+  .mobile-link:hover {
+    background: #f6faff;
+  }
+
+  .mobile-link.active {
+    background: #eaf4ff;
+    border-bottom-color: transparent;
+    color: #0865d8;
+    font-weight: 600;
+  }
+
+  .mobile-link.active::after {
+    color: #0865d8;
+  }
+
+  .mobile-auth {
+    display: grid;
+    gap: 6px;
+    margin-top: 16px;
+    padding-top: 16px;
+    border-top: 1px solid #edf3fa;
+  }
+
+  .mobile-auth-buttons {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+
+  .m-btn {
+    height: 46px;
+    display: inline-flex;
+    align-items: center;
     justify-content: center;
+    border-radius: 10px;
+    font-family: inherit;
+    font-size: 14px;
+    font-weight: 600;
+    text-decoration: none;
+    cursor: pointer;
+    transition: background 0.2s ease;
   }
 
-  .nav-link {
-    height: 35px;
+  .m-btn.outline {
+    border: 1px solid #0865d8;
+    background: #fff;
+    color: #0865d8;
+  }
+
+  .m-btn.outline:hover {
+    background: #f1f7ff;
+  }
+
+  .m-btn.solid {
+    border: 1px solid #0865d8;
+    background: #0865d8;
+    color: #fff;
+  }
+
+  .m-btn.solid:hover {
+    background: #0754b5;
+  }
+
+  .m-user {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px;
+    margin-bottom: 4px;
+    border-radius: 12px;
+    background: #f4f9ff;
+  }
+
+  .m-user .user-avatar {
+    width: 40px;
+    height: 40px;
+    font-size: 15px;
+  }
+
+  .m-user-name {
+    color: #18385f;
+    font-size: 14px;
+    font-weight: 700;
+  }
+
+  .mobile-auth .profile-menu-item {
+    min-height: 46px;
+    font-size: 14px;
   }
 }
-
-/* =========================
-   MOBILE
-========================= */
 
 @media (max-width: 650px) {
   .navbar-container {
@@ -688,39 +979,6 @@ onUnmounted(() => {
 
   .brand img {
     width: 125px;
-  }
-
-  .nav-actions {
-    gap: 6px;
-  }
-
-  .login-button,
-  .register-button {
-    padding: 0 11px;
-  }
-
-  .nav-menu {
-    gap: 16px;
-    overflow-x: auto;
-    justify-content: flex-start;
-  }
-
-  .nav-link {
-    font-size: 11px;
-  }
-}
-
-/* =========================
-   SMALL MOBILE
-========================= */
-
-@media (max-width: 380px) {
-  .nav-menu {
-    gap: 12px;
-  }
-
-  .nav-link {
-    font-size: 10px;
   }
 }
 </style>

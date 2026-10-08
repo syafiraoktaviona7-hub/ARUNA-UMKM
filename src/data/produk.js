@@ -3,12 +3,14 @@
 // jenis hanya diisi untuk kategori Makanan: 'Fast Food Lokal' | 'Frozen Food' | 'Kuliner Lainnya'
 const WA_CONTOH = "6280000000000"; // GANTI dengan nomor WhatsApp penjual yang asli
 
+// Sembako dan Sayur dan Buah belum punya foto. Taruh fotonya di public/images
+// dengan nama di bawah ini, atau ubah path-nya. Selama belum ada, kartu menampilkan huruf.
 const img = {
   Makanan: "/images/kategori-makanan.jpg",
   Minuman: "/images/kategori-minuman.jpg",
-  Kerajinan: "/images/kategori-kerajinan.jpg",
-  Fashion: "/images/kategori-fashion.jpg",
-  "Home Decor": "/images/kategori-home-decor.jpg",
+  "Fashion & Aksesorisnya": "/images/kategori-fashion.jpg",
+  Sembako: "/images/produk-sembako.jpg",
+  "Sayur dan Buah": "/images/produk-sayur-buah.jpg",
 };
 
 const p = (
@@ -38,6 +40,7 @@ const p = (
 });
 
 export const produkList = [
+  // Makanan
   p(
     1,
     "Ayam Geprek Krispi Porsi Besar",
@@ -134,6 +137,8 @@ export const produkList = [
     "Kota Bandung",
     "Coblong",
   ),
+
+  // Minuman
   p(
     9,
     "Kopi Arjuna Robusta 200g",
@@ -160,9 +165,61 @@ export const produkList = [
   ),
   p(
     11,
+    "Wedang Jahe Instan 10 Sachet",
+    "Wedang Jahe Bu Tini",
+    "Minuman",
+    "",
+    18000,
+    54,
+    "Jawa Tengah",
+    "Kota Surakarta",
+    "Laweyan",
+  ),
+
+  // Sembako
+  p(
+    12,
+    "Beras Pandan Wangi 5 kg",
+    "Toko Beras Makmur",
+    "Sembako",
+    "",
+    72000,
+    180,
+    "Jawa Barat",
+    "Kabupaten Cianjur",
+    "Cianjur",
+  ),
+  p(
+    13,
+    "Gula Aren Cetak 500g",
+    "Gula Aren Pak Karto",
+    "Sembako",
+    "",
+    25000,
+    96,
+    "Jawa Tengah",
+    "Kabupaten Banyumas",
+    "Purwokerto Timur",
+  ),
+  p(
+    14,
+    "Telur Ayam Kampung 10 Butir",
+    "Peternak Sido Makmur",
+    "Sembako",
+    "",
+    32000,
+    120,
+    "Jawa Timur",
+    "Kota Malang",
+    "Lowokwaru",
+  ),
+
+  // Fashion & Aksesorisnya
+  p(
+    15,
     "Batik Tulis Pesisir",
     "Batik Pesisir",
-    "Fashion",
+    "Fashion & Aksesorisnya",
     "",
     285000,
     12,
@@ -171,10 +228,10 @@ export const produkList = [
     "Pekalongan Timur",
   ),
   p(
-    12,
+    16,
     "Tenun Sutra Makassar",
     "Tenun Sutra Panakkukang",
-    "Fashion",
+    "Fashion & Aksesorisnya",
     "",
     450000,
     7,
@@ -183,10 +240,10 @@ export const produkList = [
     "Panakkukang",
   ),
   p(
-    13,
-    "Anyaman Rotan Lestari",
+    17,
+    "Tas Anyaman Rotan",
     "Rotan Lestari",
-    "Kerajinan",
+    "Fashion & Aksesorisnya",
     "",
     95000,
     24,
@@ -194,40 +251,42 @@ export const produkList = [
     "Kota Cirebon",
     "Harjamukti",
   ),
+
+  // Sayur dan Buah
   p(
-    14,
-    "Ukiran Kayu Denpasar",
-    "Ukir Bali",
-    "Kerajinan",
+    18,
+    "Bayam Organik 250g",
+    "Kebun Hijau Lembang",
+    "Sayur dan Buah",
     "",
-    160000,
-    15,
-    "Bali",
-    "Kota Denpasar",
-    "Denpasar Selatan",
+    8000,
+    70,
+    "Jawa Barat",
+    "Kabupaten Bandung Barat",
+    "Lembang",
   ),
   p(
-    15,
-    "Gerabah Kasongan",
-    "Gerabah Kasongan",
-    "Home Decor",
-    "",
-    75000,
-    31,
-    "Daerah Istimewa Yogyakarta",
-    "Kabupaten Bantul",
-    "Kasihan",
-  ),
-  p(
-    16,
-    "Lampu Bambu Kebayoran",
-    "Lampu Bambu Studio",
-    "Home Decor",
-    "",
-    120000,
     19,
-    "DKI Jakarta",
-    "Kota Jakarta Selatan",
-    "Kebayoran Baru",
+    "Jeruk Keprok Batu 1 kg",
+    "Kebun Jeruk Bumiaji",
+    "Sayur dan Buah",
+    "",
+    35000,
+    85,
+    "Jawa Timur",
+    "Kota Batu",
+    "Bumiaji",
+  ),
+  p(
+    20,
+    "Mangga Arumanis 1 kg",
+    "Kebun Mangga Indramayu",
+    "Sayur dan Buah",
+    "",
+    28000,
+    64,
+    "Jawa Barat",
+    "Kabupaten Indramayu",
+    "Indramayu",
   ),
 ];

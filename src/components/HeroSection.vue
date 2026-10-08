@@ -1,8 +1,9 @@
 <script setup>
+import { categoryCards } from "@/data/categories";
 const query = defineModel("query", { type: String, default: "" });
 defineEmits(["pick-category"]);
 
-const categories = ["Makanan", "Minuman", "Kerajinan", "Fashion", "Home Decor"];
+const categories = categoryCards.map((c) => c.name);
 
 const stats = [
   { icon: "store", number: "500+", label: "Produk Lokal" },
