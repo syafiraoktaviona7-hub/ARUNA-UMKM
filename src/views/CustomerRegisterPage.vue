@@ -2,11 +2,44 @@
 import { ref, computed } from "vue";
 import { useRouter } from "vue-router";
 import { useAuth } from "@/composables/useAuth";
+import { useWilayahFilter } from "@/composables/useWilayahFilter";
 
 const router = useRouter();
 const { registerUser } = useAuth();
 
+const {
+  provinces,
+  cities,
+  districts,
+  villages,
+  provinceId,
+  cityId,
+  districtId,
+  villageId,
+  selected,
+} = useWilayahFilter();
+
 const currentStep = ref(1);
+
+const validationPopup = ref({
+  show: false,
+  title: "Data Belum Lengkap",
+  message: "Yuk, lengkapi data berikut terlebih dahulu.",
+  fields: [],
+});
+
+function closeValidationPopup() {
+  validationPopup.value.show = false;
+}
+
+function showValidationPopup(fields) {
+  validationPopup.value = {
+    show: true,
+    title: "Data Belum Lengkap",
+    message: "Yuk, lengkapi data berikut terlebih dahulu.",
+    fields,
+  };
+}
 
 const form = ref({
   nama: "",
@@ -15,45 +48,17 @@ const form = ref({
   tanggalLahir: "",
   jenisKelamin: "",
   password: "",
+  konfirmasiPassword: "",
 
   provinsi: "",
   kota: "",
   kecamatan: "",
   kelurahan: "",
+  kodePos: "",
   alamatLengkap: "",
 });
 
-const provinces = [
-  "Jawa Timur",
-  "Jawa Barat",
-  "Jawa Tengah",
-  "DKI Jakarta",
-  "Bali",
-];
 
-const cities = [
-  "Surabaya",
-  "Gresik",
-  "Sidoarjo",
-  "Malang",
-  "Kediri",
-];
-
-const districts = [
-  "Kebomas",
-  "Manyar",
-  "Driyorejo",
-  "Cerme",
-  "Menganti",
-];
-
-const villages = [
-  "Gending",
-  "Sidomoro",
-  "Sukomulyo",
-  "Sembayat",
-  "Yosowilangun",
-];
 
 function kembali() {
   if (currentStep.value === 3) {
@@ -70,14 +75,94 @@ function kembali() {
 }
 
 function lanjutkan() {
+  let emptyFields = [];
+
+  // =========================
+  // STEP 1 - DATA DIRI
+  // =========================
   if (currentStep.value === 1) {
-    currentStep.value = 2;
+    if (!form.value.nama.trim()) {
+      emptyFields.push("Nama Lengkap");
+    }
+
+    if (!form.value.email.trim()) {
+      emptyFields.push("Email");
+    }
+
+    if (!form.value.nomorHp.trim()) {
+      emptyFields.push("Nomor HP");
+    }
+
+    if (!form.value.tanggalLahir) {
+      emptyFields.push("Tanggal Lahir");
+    }
+
+    if (!form.value.jenisKelamin) {
+      emptyFields.push("Jenis Kelamin");
+    }
+
+    if (!form.value.password.trim()) {
+      emptyFields.push("Password");
+    }
+
+    if (!form.value.konfirmasiPassword.trim()) {
+      emptyFields.push("Konfirmasi Password");
+    }
+
+    if (form.value.password !== form.value.konfirmasiPassword) {
+      validationPopup.value = {
+        show: true,
+        title: "Password Belum Cocok",
+        message: "Password dan konfirmasi password harus sama.",
+        fields: [],
+      };
+
+      return;
+    }
+  }
+
+  // =========================
+  // STEP 2 - ALAMAT
+  // =========================
+  if (currentStep.value === 2) {
+if (!provinceId.value) {
+  emptyFields.push("Provinsi");
+}
+
+if (!cityId.value) {
+  emptyFields.push("Kota / Kabupaten");
+}
+
+if (!districtId.value) {
+  emptyFields.push("Kecamatan");
+}
+
+if (!villageId.value) {
+  emptyFields.push("Kelurahan / Desa");
+}
+
+    if (!form.value.kodePos.trim()) {
+      emptyFields.push("Kode Pos");
+    }
+
+    if (!form.value.alamatLengkap.trim()) {
+      emptyFields.push("Alamat Lengkap");
+    }
+  }
+
+  // =========================
+  // JIKA ADA DATA KOSONG
+  // =========================
+  if (emptyFields.length > 0) {
+    showValidationPopup(emptyFields);
     return;
   }
 
-  if (currentStep.value === 2) {
-    currentStep.value = 3;
-    return;
+  // =========================
+  // LANJUT KE STEP BERIKUTNYA
+  // =========================
+  if (currentStep.value < 3) {
+    currentStep.value++;
   }
 }
 
@@ -137,6 +222,8 @@ const tanggalLahirFormatted = computed(() => {
 });
 
 const showPhoneError = ref(false);
+
+
 
 function handlePhoneInput(event) {
   const value = event.target.value;
@@ -443,6 +530,23 @@ function closePhoneError() {
               </small>
             </div>
 
+<!-- Konfirmasi Password -->
+<div class="form-group password-group">
+  <label>Konfirmasi Password</label>
+
+  <div class="input-wrapper">
+    <span class="input-icon">♙</span>
+
+    <input
+      v-model="form.konfirmasiPassword"
+      type="password"
+      placeholder="Masukkan kembali password"
+    />
+
+    <span class="eye-icon">◉</span>
+  </div>
+</div>
+
           </div>
         </div>
 
@@ -480,16 +584,17 @@ function closePhoneError() {
         </svg>
       </span>
 
-      <select v-model="form.provinsi">
-        <option value="" disabled>Pilih provinsi</option>
-        <option
-          v-for="province in provinces"
-          :key="province"
-          :value="province"
-        >
-          {{ province }}
-        </option>
-      </select>
+     <select v-model="provinceId">
+  <option value="" disabled>Pilih provinsi</option>
+
+  <option
+    v-for="province in provinces"
+    :key="province.id"
+    :value="province.id"
+  >
+    {{ province.name }}
+  </option>
+</select>
     </div>
   </div>
 
@@ -519,16 +624,22 @@ function closePhoneError() {
         </svg>
       </span>
 
-      <select v-model="form.kota">
-        <option value="" disabled>Pilih kota / kabupaten</option>
-        <option
-          v-for="city in cities"
-          :key="city"
-          :value="city"
-        >
-          {{ city }}
-        </option>
-      </select>
+     <select
+  v-model="cityId"
+  :disabled="!provinceId"
+>
+  <option value="" disabled>
+    Pilih kota / kabupaten
+  </option>
+
+  <option
+    v-for="city in cities"
+    :key="city.id"
+    :value="city.id"
+  >
+    {{ city.name }}
+  </option>
+</select>
     </div>
   </div>
 
@@ -553,16 +664,22 @@ function closePhoneError() {
         </svg>
       </span>
 
-      <select v-model="form.kecamatan">
-        <option value="" disabled>Pilih kecamatan</option>
-        <option
-          v-for="district in districts"
-          :key="district"
-          :value="district"
-        >
-          {{ district }}
-        </option>
-      </select>
+      <select
+  v-model="districtId"
+  :disabled="!cityId"
+>
+  <option value="" disabled>
+    Pilih kecamatan
+  </option>
+
+  <option
+    v-for="district in districts"
+    :key="district.id"
+    :value="district.id"
+  >
+    {{ district.name }}
+  </option>
+</select>
     </div>
   </div>
 
@@ -593,16 +710,22 @@ function closePhoneError() {
         </svg>
       </span>
 
-      <select v-model="form.kelurahan">
-        <option value="" disabled>Pilih kelurahan / desa</option>
-        <option
-          v-for="village in villages"
-          :key="village"
-          :value="village"
-        >
-          {{ village }}
-        </option>
-      </select>
+      <select
+  v-model="villageId"
+  :disabled="!districtId"
+>
+  <option value="" disabled>
+    Pilih kelurahan / desa
+  </option>
+
+  <option
+    v-for="village in villages"
+    :key="village.id"
+    :value="village.id"
+  >
+    {{ village.name }}
+  </option>
+</select>
     </div>
   </div>
 
@@ -767,22 +890,22 @@ function closePhoneError() {
 
       <div class="confirmation-data">
         <span>Provinsi</span>
-        <strong>{{ form.provinsi || "-" }}</strong>
+<strong>{{ selected.province || "-" }}</strong>
       </div>
 
       <div class="confirmation-data">
         <span>Kota / Kabupaten</span>
-        <strong>{{ form.kota || "-" }}</strong>
+        <strong>{{ selected.city || "-" }}</strong>
       </div>
 
       <div class="confirmation-data">
         <span>Kecamatan</span>
-        <strong>{{ form.kecamatan || "-" }}</strong>
+        <strong>{{ selected.district || "-" }}</strong>
       </div>
 
       <div class="confirmation-data">
         <span>Kelurahan / Desa</span>
-        <strong>{{ form.kelurahan || "-" }}</strong>
+        <strong>{{ selected.village || "-" }}</strong>
       </div>
 
       <div class="confirmation-data confirmation-full">
@@ -899,7 +1022,78 @@ function closePhoneError() {
 
   </div>
 </div>
-        
+
+<!-- =========================
+     VALIDATION POPUP
+========================== -->
+<div
+  v-if="validationPopup.show"
+  class="validation-overlay"
+  @click.self="closeValidationPopup"
+>
+  <div class="validation-popup">
+
+    <button
+      type="button"
+      class="popup-close"
+      @click="closeValidationPopup"
+    >
+      ×
+    </button>
+
+    <div class="popup-icon">
+      <svg viewBox="0 0 24 24" fill="none">
+        <path
+          d="M12 3L21 20H3L12 3Z"
+          stroke="currentColor"
+          stroke-width="1.8"
+          stroke-linejoin="round"
+        />
+        <path
+          d="M12 9V13"
+          stroke="currentColor"
+          stroke-width="1.8"
+          stroke-linecap="round"
+        />
+        <circle
+          cx="12"
+          cy="16.5"
+          r="1"
+          fill="currentColor"
+        />
+      </svg>
+    </div>
+
+    <h3>{{ validationPopup.title }}</h3>
+
+    <p class="popup-message">
+      {{ validationPopup.message }}
+    </p>
+
+    <div
+      v-if="validationPopup.fields.length"
+      class="popup-fields"
+    >
+      <div
+        v-for="field in validationPopup.fields"
+        :key="field"
+        class="popup-field"
+      >
+        <span class="popup-check">!</span>
+        <span>{{ field }}</span>
+      </div>
+    </div>
+
+    <button
+      type="button"
+      class="popup-button"
+      @click="closeValidationPopup"
+    >
+      Oke, Saya Lengkapi
+    </button>
+
+  </div>
+</div>   
 
       </div>
     </section>
@@ -2085,6 +2279,203 @@ function closePhoneError() {
 
 .phone-error-button:hover {
   background: #0754b5;
+}
+
+/* =========================
+   VALIDATION POPUP
+========================= */
+
+.validation-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  padding: 20px;
+
+  background: rgba(16, 43, 80, 0.35);
+  backdrop-filter: blur(5px);
+
+  animation: popupOverlay 0.2s ease;
+}
+
+.validation-popup {
+  position: relative;
+
+  width: min(430px, 100%);
+  padding: 34px 32px 30px;
+
+  border-radius: 24px;
+  background: #ffffff;
+
+  text-align: center;
+
+  box-shadow:
+    0 25px 70px rgba(8, 101, 216, 0.18),
+    0 8px 25px rgba(16, 43, 80, 0.08);
+
+  animation: popupShow 0.25s ease;
+}
+
+.popup-close {
+  position: absolute;
+  top: 14px;
+  right: 16px;
+
+  width: 32px;
+  height: 32px;
+
+  display: grid;
+  place-items: center;
+
+  border: 0;
+  border-radius: 50%;
+
+  background: #f3f7fc;
+  color: #7d91ad;
+
+  font-size: 22px;
+  line-height: 1;
+
+  cursor: pointer;
+
+  transition: 0.2s ease;
+}
+
+.popup-close:hover {
+  background: #e8f2ff;
+  color: #0865d8;
+}
+
+.popup-icon {
+  width: 68px;
+  height: 68px;
+
+  margin: 0 auto 18px;
+
+  display: grid;
+  place-items: center;
+
+  border-radius: 50%;
+
+  background: #eaf4ff;
+  color: #0865d8;
+}
+
+.popup-icon svg {
+  width: 34px;
+  height: 34px;
+}
+
+.validation-popup h3 {
+  margin: 0;
+
+  color: #102b50;
+
+  font-size: 21px;
+  font-weight: 700;
+}
+
+.popup-message {
+  margin: 8px auto 20px;
+
+  color: #7d91ad;
+
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.popup-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+
+  margin-bottom: 22px;
+  padding: 14px;
+
+  border-radius: 13px;
+
+  background: #f7fbff;
+
+  text-align: left;
+}
+
+.popup-field {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+
+  color: #526b88;
+
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.popup-check {
+  width: 20px;
+  height: 20px;
+
+  flex: 0 0 20px;
+
+  display: grid;
+  place-items: center;
+
+  border-radius: 50%;
+
+  background: #e4f1ff;
+  color: #0865d8;
+
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.popup-button {
+  width: 100%;
+  min-height: 48px;
+
+  border: 0;
+  border-radius: 10px;
+
+  background: #0865d8;
+  color: #fff;
+
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 600;
+
+  cursor: pointer;
+
+  transition: 0.2s ease;
+}
+
+.popup-button:hover {
+  background: #0754b5;
+  transform: translateY(-1px);
+}
+
+@keyframes popupShow {
+  from {
+    opacity: 0;
+    transform: translateY(12px) scale(0.96);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes popupOverlay {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
 }
 
 </style>

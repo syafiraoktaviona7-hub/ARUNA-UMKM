@@ -2,9 +2,21 @@
 import { ref } from "vue";
 import { useRouter } from "vue-router";
 import { useAuth } from "@/composables/useAuth";
+import { useWilayahFilter } from "@/composables/useWilayahFilter";
 
 const router = useRouter();
 const { registerUser } = useAuth();
+
+const {
+  provinces,
+  cities,
+  districts,
+  villages,
+  provinceId,
+  cityId,
+  districtId,
+  villageId,
+} = useWilayahFilter();
 
 const currentStep = ref(1);
 
@@ -37,6 +49,10 @@ fotoSelfie: null,
 const showPassword = ref(false);
 const showConfirmPassword = ref(false);
 
+const previewDokumenUsaha = ref("");
+const previewFotoKtp = ref("");
+const previewFotoSelfie = ref("");
+
 const validationPopup = ref({
   show: false,
   title: "Data Belum Lengkap",
@@ -49,10 +65,16 @@ function closeValidationPopup() {
 }
 
 function showValidationPopup(fields) {
+  const isSelfieMissing = fields.includes("Foto Selfie dengan KTP");
+
   validationPopup.value = {
     show: true,
-    title: "Data Belum Lengkap",
-    message: "Yuk, lengkapi data berikut terlebih dahulu.",
+    title: isSelfieMissing
+      ? "Foto Selfie dengan KTP Wajib"
+      : "Data Belum Lengkap",
+    message: isSelfieMissing
+      ? "Foto selfie dengan KTP wajib diunggah untuk melanjutkan pendaftaran."
+      : "Yuk, lengkapi data berikut terlebih dahulu.",
     fields,
   };
 }
@@ -124,21 +146,21 @@ function nextStep() {
   }
 
   if (currentStep.value === 3) {
-    if (!form.value.provinsi) {
-      emptyFields.push("Provinsi");
-    }
+    if (!provinceId.value) {
+  emptyFields.push("Provinsi");
+}
 
-    if (!form.value.kota) {
-      emptyFields.push("Kota / Kabupaten");
-    }
+if (!cityId.value) {
+  emptyFields.push("Kota / Kabupaten");
+}
 
-    if (!form.value.kecamatan) {
-      emptyFields.push("Kecamatan");
-    }
+if (!districtId.value) {
+  emptyFields.push("Kecamatan");
+}
 
-    if (!form.value.kelurahan) {
-      emptyFields.push("Kelurahan");
-    }
+if (!villageId.value) {
+  emptyFields.push("Kelurahan");
+}
 
     if (!form.value.kodePos.trim()) {
       emptyFields.push("Kode Pos");
@@ -154,6 +176,10 @@ function nextStep() {
 
     if (!form.value.fotoKtp) {
       emptyFields.push("Foto KTP");
+    }
+
+    if (!form.value.fotoSelfie) {
+      emptyFields.push("Foto Selfie dengan KTP");
     }
   }
 
@@ -173,24 +199,52 @@ function previousStep() {
   }
 }
 
+function handleFileUpload(event, field) {
+  const file = event.target.files[0];
+
+  if (!file) return;
+
+  form.value[field] = file;
+
+  if (file.type.startsWith("image/")) {
+    const previewUrl = URL.createObjectURL(file);
+
+    if (field === "dokumenUsaha") {
+      previewDokumenUsaha.value = previewUrl;
+    }
+
+    if (field === "fotoKtp") {
+      previewFotoKtp.value = previewUrl;
+    }
+
+    if (field === "fotoSelfie") {
+      previewFotoSelfie.value = previewUrl;
+    }
+  }
+}
+
+function keLogin() {
+  router.push("/login");
+}
+
 function submitRegister() {
   let emptyFields = [];
 
-  if (!form.value.provinsi) {
-    emptyFields.push("Provinsi");
-  }
+  if (!provinceId.value) {
+  emptyFields.push("Provinsi");
+}
 
-  if (!form.value.kota) {
-    emptyFields.push("Kota / Kabupaten");
-  }
+if (!cityId.value) {
+  emptyFields.push("Kota / Kabupaten");
+}
 
-  if (!form.value.kecamatan) {
-    emptyFields.push("Kecamatan");
-  }
+if (!districtId.value) {
+  emptyFields.push("Kecamatan");
+}
 
-  if (!form.value.kelurahan) {
-    emptyFields.push("Kelurahan");
-  }
+if (!villageId.value) {
+  emptyFields.push("Kelurahan");
+}
 
   if (!form.value.kodePos.trim()) {
     emptyFields.push("Kode Pos");
@@ -207,6 +261,10 @@ function submitRegister() {
   if (!form.value.fotoKtp) {
     emptyFields.push("Foto KTP");
   }
+
+if (!form.value.fotoSelfie) {
+  emptyFields.push("Foto Selfie dengan KTP");
+}
 
  if (emptyFields.length > 0) {
   showValidationPopup(emptyFields);
@@ -759,80 +817,46 @@ function closePhoneError() {
       </div>
     </div>
 
-    <!-- TANGGAL LAHIR -->
-    <div class="form-group">
-      <label>Tanggal Lahir</label>
+   <!-- TANGGAL LAHIR -->
+<div class="form-group">
+  <label>Tanggal Lahir</label>
 
-      <div class="input-wrapper">
-        <svg viewBox="0 0 24 24" fill="none">
-          <rect
-            x="3"
-            y="5"
-            width="18"
-            height="16"
-            rx="2"
-            stroke="currentColor"
-            stroke-width="1.8"
-          />
-          <path
-            d="M7 3V7"
-            stroke="currentColor"
-            stroke-width="1.8"
-            stroke-linecap="round"
-          />
-          <path
-            d="M17 3V7"
-            stroke="currentColor"
-            stroke-width="1.8"
-            stroke-linecap="round"
-          />
-          <path
-            d="M3 10H21"
-            stroke="currentColor"
-            stroke-width="1.8"
-          />
-        </svg>
+  <div class="input-wrapper">
+    <svg viewBox="0 0 24 24" fill="none">
+      <rect
+        x="3"
+        y="5"
+        width="18"
+        height="16"
+        rx="2"
+        stroke="currentColor"
+        stroke-width="1.8"
+      />
+      <path
+        d="M7 3V7"
+        stroke="currentColor"
+        stroke-width="1.8"
+        stroke-linecap="round"
+      />
+      <path
+        d="M17 3V7"
+        stroke="currentColor"
+        stroke-width="1.8"
+        stroke-linecap="round"
+      />
+      <path
+        d="M3 10H21"
+        stroke="currentColor"
+        stroke-width="1.8"
+      />
+    </svg>
 
-        <input
-          v-model="form.tanggalLahir"
-          type="text"
-          placeholder="dd/mm/yyyy"
-        />
-
-        <svg
-          class="calendar-icon"
-          viewBox="0 0 24 24"
-          fill="none"
-        >
-          <rect
-            x="3"
-            y="5"
-            width="18"
-            height="16"
-            rx="2"
-            stroke="currentColor"
-            stroke-width="1.8"
-          />
-          <path
-            d="M7 3V7"
-            stroke="currentColor"
-            stroke-width="1.8"
-            stroke-linecap="round"
-          />
-          <path
-            d="M17 3V7"
-            stroke="currentColor"
-            stroke-width="1.8"
-            stroke-linecap="round"
-          />
-          <path
-            d="M3 10H21"
-            stroke="currentColor"
-            stroke-width="1.8"
-          />
-        </svg>
-      </div>
-    </div>
+    <input
+      v-model="form.tanggalLahir"
+      type="date"
+    />
+  </div>
+</div>
 
     <!-- JENIS KELAMIN -->
     <div class="form-group">
@@ -1034,14 +1058,17 @@ function closePhoneError() {
           />
         </svg>
 
-        <select v-model="form.provinsi">
-          <option value="" disabled>Pilih provinsi</option>
-          <option value="jawa-timur">Jawa Timur</option>
-          <option value="jawa-tengah">Jawa Tengah</option>
-          <option value="jawa-barat">Jawa Barat</option>
-          <option value="dki-jakarta">DKI Jakarta</option>
-          <option value="bali">Bali</option>
-        </select>
+       <select v-model="provinceId">
+  <option value="" disabled>Pilih provinsi</option>
+
+  <option
+    v-for="province in provinces"
+    :key="province.id"
+    :value="province.id"
+  >
+    {{ province.name }}
+  </option>
+</select>
 
         <span class="select-arrow">
           <svg viewBox="0 0 24 24" fill="none">
@@ -1100,14 +1127,19 @@ function closePhoneError() {
           />
         </svg>
 
-        <select v-model="form.kota">
-          <option value="" disabled>Pilih kota / kabupaten</option>
-          <option value="surabaya">Surabaya</option>
-          <option value="malang">Malang</option>
-          <option value="sidoarjo">Sidoarjo</option>
-          <option value="gresik">Gresik</option>
-          <option value="kediri">Kediri</option>
-        </select>
+<select v-model="cityId" :disabled="!provinceId">
+  <option value="" disabled>
+    {{ provinceId ? "Pilih kota / kabupaten" : "Pilih provinsi terlebih dahulu" }}
+  </option>
+
+  <option
+    v-for="city in cities"
+    :key="city.id"
+    :value="city.id"
+  >
+    {{ city.name }}
+  </option>
+</select>
 
         <span class="select-arrow">
           <svg viewBox="0 0 24 24" fill="none">
@@ -1147,14 +1179,19 @@ function closePhoneError() {
           />
         </svg>
 
-        <select v-model="form.kecamatan">
-          <option value="" disabled>Pilih kecamatan</option>
-          <option value="genteng">Genteng</option>
-          <option value="tegalsari">Tegalsari</option>
-          <option value="wonokromo">Wonokromo</option>
-          <option value="sukolilo">Sukolilo</option>
-          <option value="rungkut">Rungkut</option>
-        </select>
+      <select v-model="districtId" :disabled="!cityId">
+  <option value="" disabled>
+    {{ cityId ? "Pilih kecamatan" : "Pilih kota / kabupaten terlebih dahulu" }}
+  </option>
+
+  <option
+    v-for="district in districts"
+    :key="district.id"
+    :value="district.id"
+  >
+    {{ district.name }}
+  </option>
+</select>
 
         <span class="select-arrow">
           <svg viewBox="0 0 24 24" fill="none">
@@ -1195,12 +1232,19 @@ function closePhoneError() {
           />
         </svg>
 
-        <select v-model="form.kelurahan">
-          <option value="" disabled>Pilih kelurahan</option>
-          <option value="genteng">Genteng</option>
-          <option value="keputran">Keputran</option>
-          <option value="embong-kaliasin">Embong Kaliasin</option>
-        </select>
+       <select v-model="villageId" :disabled="!districtId">
+  <option value="" disabled>
+    {{ districtId ? "Pilih kelurahan" : "Pilih kecamatan terlebih dahulu" }}
+  </option>
+
+  <option
+    v-for="village in villages"
+    :key="village.id"
+    :value="village.id"
+  >
+    {{ village.name }}
+  </option>
+</select>
 
         <span class="select-arrow">
           <svg viewBox="0 0 24 24" fill="none">
@@ -1297,7 +1341,7 @@ function closePhoneError() {
         <h4>Dokumen Usaha</h4>
         <span>(NIB / SIUP / lainnya)</span>
 
-        <div class="upload-icon">
+        <div v-if="!previewDokumenUsaha" class="upload-icon">
           <svg viewBox="0 0 24 24" fill="none">
             <path
               d="M12 16V4"
@@ -1322,15 +1366,30 @@ function closePhoneError() {
           </svg>
         </div>
 
-        <label class="file-button">
-          Pilih File
-          <input
-            type="file"
-            accept=".pdf,.jpg,.jpeg,.png"
-            @change="form.dokumenUsaha = $event.target.files[0]"
-          />
-        </label>
+       <div v-if="previewDokumenUsaha" class="file-preview">
+  <img
+    v-if="form.dokumenUsaha?.type?.startsWith('image/')"
+    :src="previewDokumenUsaha"
+    alt="Preview Dokumen Usaha"
+  />
 
+  <div v-else class="pdf-preview">
+    <span class="pdf-icon">PDF</span>
+    <span class="file-name">
+      {{ form.dokumenUsaha?.name }}
+    </span>
+  </div>
+</div>
+
+<label class="file-button">
+  {{ form.dokumenUsaha ? "Ganti File" : "Pilih File" }}
+
+  <input
+    type="file"
+    accept=".pdf,.jpg,.jpeg,.png"
+    @change="handleFileUpload($event, 'dokumenUsaha')"
+  />
+</label>
         <p>PDF, JPG, PNG<br />Maks. 5 MB</p>
       </div>
 
@@ -1338,7 +1397,7 @@ function closePhoneError() {
       <div class="document-card">
         <h4>Foto KTP</h4>
 
-        <div class="upload-icon">
+       <div v-if="!previewFotoKtp" class="upload-icon">
           <svg viewBox="0 0 24 24" fill="none">
             <path
               d="M12 16V4"
@@ -1363,24 +1422,32 @@ function closePhoneError() {
           </svg>
         </div>
 
-        <label class="file-button">
-          Pilih File
-          <input
-            type="file"
-            accept=".jpg,.jpeg,.png"
-            @change="form.fotoKtp = $event.target.files[0]"
-          />
-        </label>
+       <div v-if="previewFotoKtp" class="file-preview">
+  <img
+    :src="previewFotoKtp"
+    alt="Preview Foto KTP"
+  />
+</div>
+
+<label class="file-button">
+  {{ form.fotoKtp ? "Ganti Foto" : "Pilih File" }}
+
+  <input
+    type="file"
+    accept=".jpg,.jpeg,.png"
+    @change="handleFileUpload($event, 'fotoKtp')"
+  />
+</label>
 
         <p>JPG, PNG<br />Maks. 5 MB</p>
       </div>
 
       <!-- SELFIE -->
-      <div class="document-card">
-        <h4>Foto Selfie dengan KTP</h4>
-        <span>(Opsional)</span>
+    <div class="document-card">
+  <h4>Foto Selfie dengan KTP</h4>
+  <span>(Wajib)</span>
 
-        <div class="upload-icon">
+        <div v-if="!previewFotoSelfie" class="upload-icon">
           <svg viewBox="0 0 24 24" fill="none">
             <path
               d="M12 16V4"
@@ -1405,14 +1472,22 @@ function closePhoneError() {
           </svg>
         </div>
 
-        <label class="file-button">
-          Pilih File
-          <input
-            type="file"
-            accept=".jpg,.jpeg,.png"
-            @change="form.fotoSelfie = $event.target.files[0]"
-          />
-        </label>
+       <div v-if="previewFotoSelfie" class="file-preview">
+  <img
+    :src="previewFotoSelfie"
+    alt="Preview Foto Selfie"
+  />
+</div>
+
+<label class="file-button">
+  {{ form.fotoSelfie ? "Ganti Foto" : "Pilih File" }}
+
+  <input
+    type="file"
+    accept=".jpg,.jpeg,.png"
+    @change="handleFileUpload($event, 'fotoSelfie')"
+  />
+</label>
 
         <p>JPG, PNG<br />Maks. 5 MB</p>
       </div>
@@ -1469,9 +1544,13 @@ function closePhoneError() {
             <span>Sudah punya akun?</span>
           </div>
 
-          <button type="button" class="login-button">
-            Masuk di sini
-          </button>
+        <button
+  type="button"
+  class="login-button"
+  @click="keLogin"
+>
+  Masuk di sini
+</button>
 
         </section>
 
@@ -2490,6 +2569,58 @@ function closePhoneError() {
   font-weight: 600;
   cursor: pointer;
   transition: background 0.2s ease;
+}
+
+.file-preview {
+  width: 90%;
+  height: 70px;
+  margin: 6px 0;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid #dce6f1;
+  background: #f7fbff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.file-preview img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.pdf-preview {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 8px;
+}
+
+.pdf-icon {
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  background: #eaf4ff;
+  color: #0865d8;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 8px;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.file-name {
+  max-width: 110px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: #526b88;
+  font-size: 9px;
 }
 
 .file-button:hover {

@@ -294,7 +294,24 @@ router.push("/");
                 </label>
 
                 <div class="input-wrapper">
-                  <span class="input-icon">♙</span>
+                 <span class="input-icon">
+                    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                      <circle
+                        cx="12"
+                        cy="7.5"
+                        r="3.2"
+                        stroke="currentColor"
+                        stroke-width="1.8"
+                      />
+
+                      <path
+                        d="M5.5 20c.7-3.8 3-5.8 6.5-5.8s5.8 2 6.5 5.8"
+                        stroke="currentColor"
+                        stroke-width="1.8"
+                        stroke-linecap="round"
+                      />
+                    </svg>
+                  </span>
 
                   <input
                     v-model="form.nama"
@@ -310,7 +327,33 @@ router.push("/");
                 </label>
 
                 <div class="input-wrapper">
-                  <span class="input-icon">♧</span>
+                 <span class="input-icon">
+                    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                      <rect
+                        x="7"
+                        y="3"
+                        width="10"
+                        height="18"
+                        rx="2"
+                        stroke="currentColor"
+                        stroke-width="1.8"
+                      />
+
+                      <path
+                        d="M10 6h4"
+                        stroke="currentColor"
+                        stroke-width="1.8"
+                        stroke-linecap="round"
+                      />
+
+                      <circle
+                        cx="12"
+                        cy="18"
+                        r="0.9"
+                        fill="currentColor"
+                      />
+                    </svg>
+                  </span>
 
                   <input
                     v-model="form.nomorHp"
@@ -525,15 +568,117 @@ router.push("/");
 
                 <span class="radio-circle"></span>
 
-                <div class="payment-icon">
-                  {{
-                    method.id === "transfer"
-                      ? "▣"
-                      : method.id === "ewallet"
-                      ? "▱"
-                      : "♧"
-                  }}
-                </div>
+               <div class="payment-icon">
+  <!-- TRANSFER BANK -->
+  <svg
+    v-if="method.id === 'transfer'"
+    viewBox="0 0 24 24"
+    fill="none"
+    aria-hidden="true"
+  >
+    <path
+      d="M3 9h18"
+      stroke="currentColor"
+      stroke-width="1.8"
+      stroke-linecap="round"
+    />
+
+    <path
+      d="M4 9l8-5 8 5"
+      stroke="currentColor"
+      stroke-width="1.8"
+      stroke-linecap="round"
+      stroke-linejoin="round"
+    />
+
+    <path
+      d="M5 9v8M9 9v8M15 9v8M19 9v8"
+      stroke="currentColor"
+      stroke-width="1.8"
+      stroke-linecap="round"
+    />
+
+    <path
+      d="M3 19h18"
+      stroke="currentColor"
+      stroke-width="1.8"
+      stroke-linecap="round"
+    />
+  </svg>
+
+  <!-- E-WALLET -->
+  <svg
+    v-else-if="method.id === 'ewallet'"
+    viewBox="0 0 24 24"
+    fill="none"
+    aria-hidden="true"
+  >
+    <path
+      d="M4 6.5A2.5 2.5 0 0 1 6.5 4H19a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1H6.5A2.5 2.5 0 0 1 4 17.5v-11Z"
+      stroke="currentColor"
+      stroke-width="1.8"
+      stroke-linejoin="round"
+    />
+
+    <path
+      d="M4 7h14"
+      stroke="currentColor"
+      stroke-width="1.8"
+      stroke-linecap="round"
+    />
+
+    <path
+      d="M15 12h5v4h-5a2 2 0 0 1 0-4Z"
+      stroke="currentColor"
+      stroke-width="1.8"
+      stroke-linejoin="round"
+    />
+
+    <circle
+      cx="16.5"
+      cy="14"
+      r="0.8"
+      fill="currentColor"
+    />
+  </svg>
+
+  <!-- COD -->
+  <svg
+    v-else
+    viewBox="0 0 24 24"
+    fill="none"
+    aria-hidden="true"
+  >
+    <path
+      d="M4 7.5 12 4l8 3.5v9L12 20l-8-3.5v-9Z"
+      stroke="currentColor"
+      stroke-width="1.8"
+      stroke-linejoin="round"
+    />
+
+    <path
+      d="M4.5 7.5 12 11l7.5-3.5"
+      stroke="currentColor"
+      stroke-width="1.8"
+      stroke-linejoin="round"
+    />
+
+    <path
+      d="M12 11v9"
+      stroke="currentColor"
+      stroke-width="1.8"
+      stroke-linecap="round"
+    />
+
+    <path
+      d="m8.5 15 2 2 4-4"
+      stroke="currentColor"
+      stroke-width="1.8"
+      stroke-linecap="round"
+      stroke-linejoin="round"
+    />
+  </svg>
+</div>
 
                 <div class="option-info">
                   <strong>{{ method.name }}</strong>
@@ -947,6 +1092,12 @@ router.push("/");
   border-right: 1px solid #e1eaf4;
 }
 
+.input-icon svg {
+  width: 19px;
+  height: 19px;
+  display: block;
+}
+
 .select-arrow {
   position: absolute;
   right: 12px;
@@ -1121,11 +1272,20 @@ textarea:focus {
 .payment-icon {
   width: 31px;
   height: 31px;
+
   display: grid;
   place-items: center;
+
   flex-shrink: 0;
+
   color: #0b68d7;
-  font-size: 23px;
+}
+
+.payment-icon svg {
+  width: 26px;
+  height: 26px;
+
+  display: block;
 }
 
 

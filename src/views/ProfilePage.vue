@@ -2,6 +2,7 @@
 import { ref, computed } from "vue";
 import { useRouter } from "vue-router";
 import { useAuth } from "@/composables/useAuth";
+import { useWilayahFilter } from "@/composables/useWilayahFilter";
 
 const router = useRouter();
 const {
@@ -9,6 +10,17 @@ const {
   logout,
   updateUser,
 } = useAuth();
+
+const {
+  provinces,
+  cities,
+  districts,
+  villages,
+  provinceId,
+  cityId,
+  districtId,
+  villageId,
+} = useWilayahFilter();
 
 const showEditModal = ref(false);
 const showAddressModal = ref(false);
@@ -90,6 +102,21 @@ function bukaEditProfil() {
   showEditModal.value = true;
 }
 
+function tungguData(dataRef) {
+  return new Promise((resolve) => {
+    const check = () => {
+      if (dataRef.value.length > 0) {
+        resolve();
+        return;
+      }
+
+      setTimeout(check, 100);
+    };
+
+    check();
+  });
+}
+
 function bukaProfil() {
   showMenu.value = false;
   router.push("/profil");
@@ -133,7 +160,7 @@ function bukaFavorit() {
   alert("Halaman Produk Favorit akan dibuat berikutnya.");
 }
 
-function bukaEditAlamat() {
+async function bukaEditAlamat() {
   addressForm.value = {
     provinsi: profile.value.provinsi || "",
     kota: profile.value.kota || "",
@@ -143,21 +170,110 @@ function bukaEditAlamat() {
     alamatLengkap: profile.value.alamatLengkap || "",
   };
 
+  provinceId.value = "";
+  cityId.value = "";
+  districtId.value = "";
+  villageId.value = "";
+
   showAddressModal.value = true;
+
+  // Tunggu data provinsi tersedia
+  const province = provinces.value.find(
+    (item) => item.name === profile.value.provinsi
+  );
+
+  if (!province) {
+    return;
+  }
+
+  provinceId.value = province.id;
+
+  // Tunggu kota/kabupaten selesai dimuat
+  await tungguData(cities);
+
+  const city = cities.value.find(
+    (item) => item.name === profile.value.kota
+  );
+
+  if (!city) {
+    return;
+  }
+
+  cityId.value = city.id;
+
+  // Tunggu kecamatan selesai dimuat
+  await tungguData(districts);
+
+  const district = districts.value.find(
+    (item) => item.name === profile.value.kecamatan
+  );
+
+  if (!district) {
+    return;
+  }
+
+  districtId.value = district.id;
+
+  // Tunggu kelurahan/desa selesai dimuat
+  await tungguData(villages);
+
+  const village = villages.value.find(
+    (item) => item.name === profile.value.kelurahan
+  );
+
+  if (village) {
+    villageId.value = village.id;
+  }
 }
 
 function simpanAlamat() {
   try {
+    if (!provinceId.value) {
+      alert("Provinsi wajib dipilih.");
+      return;
+    }
+
+    if (!cityId.value) {
+      alert("Kota / Kabupaten wajib dipilih.");
+      return;
+    }
+
+    if (!districtId.value) {
+      alert("Kecamatan wajib dipilih.");
+      return;
+    }
+
+    if (!villageId.value) {
+      alert("Kelurahan / Desa wajib dipilih.");
+      return;
+    }
+
     if (!addressForm.value.alamatLengkap.trim()) {
       alert("Alamat lengkap wajib diisi.");
       return;
     }
 
+    const selectedProvince = provinces.value.find(
+      (item) => item.id === provinceId.value
+    );
+
+    const selectedCity = cities.value.find(
+      (item) => item.id === cityId.value
+    );
+
+    const selectedDistrict = districts.value.find(
+      (item) => item.id === districtId.value
+    );
+
+    const selectedVillage = villages.value.find(
+      (item) => item.id === villageId.value
+    );
+
     updateUser({
-      provinsi: addressForm.value.provinsi,
-      kota: addressForm.value.kota,
-      kecamatan: addressForm.value.kecamatan,
-      kelurahan: addressForm.value.kelurahan,
+      provinsi: selectedProvince?.name || "",
+      kota: selectedCity?.name || "",
+      kecamatan: selectedDistrict?.name || "",
+      kelurahan: selectedVillage?.name || "",
       kodePos: addressForm.value.kodePos,
       alamatLengkap: addressForm.value.alamatLengkap.trim(),
     });
@@ -282,31 +398,74 @@ function handlePhotoUpload(event) {
 
         <aside class="profile-sidebar">
 
-          <button
-            type="button"
-            class="sidebar-item active"
-          >
-            <span class="sidebar-icon">♙</span>
-            <span>Profil Saya</span>
-          </button>
+         <button
+  type="button"
+  class="sidebar-item active"
+>
+  <span class="sidebar-icon">
+    <svg viewBox="0 0 24 24" fill="none">
+      <circle
+        cx="12"
+        cy="8"
+        r="3.2"
+        stroke="currentColor"
+        stroke-width="1.8"
+      />
+      <path
+        d="M5.5 20c.7-3.4 3-5.2 6.5-5.2s5.8 1.8 6.5 5.2"
+        stroke="currentColor"
+        stroke-width="1.8"
+        stroke-linecap="round"
+      />
+    </svg>
+  </span>
+
+  <span>Profil Saya</span>
+</button>
+         <button
+  type="button"
+  class="sidebar-item"
+  @click="bukaRiwayatPesanan"
+>
+  <span class="sidebar-icon">
+    <svg viewBox="0 0 24 24" fill="none">
+      <path
+        d="M6 4.5h12v15H6z"
+        stroke="currentColor"
+        stroke-width="1.8"
+        stroke-linejoin="round"
+      />
+      <path
+        d="M9 8h6M9 11.5h6M9 15h4"
+        stroke="currentColor"
+        stroke-width="1.8"
+        stroke-linecap="round"
+      />
+    </svg>
+  </span>
+
+  <span>Riwayat Pesanan</span>
+</button>
 
           <button
-            type="button"
-            class="sidebar-item"
-            @click="bukaRiwayatPesanan"
-          >
-            <span class="sidebar-icon">◇</span>
-            <span>Riwayat Pesanan</span>
-          </button>
+  type="button"
+  class="sidebar-item"
+  @click="bukaFavorit"
+>
+  <span class="sidebar-icon">
+    <svg viewBox="0 0 24 24" fill="none">
+      <path
+        d="M20.8 8.8c0 5.1-8.8 10-8.8 10s-8.8-4.9-8.8-10A4.6 4.6 0 0 1 12 6.1a4.6 4.6 0 0 1 8.8 2.7Z"
+        stroke="currentColor"
+        stroke-width="1.8"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      />
+    </svg>
+  </span>
 
-          <button
-            type="button"
-            class="sidebar-item"
-            @click="bukaFavorit"
-          >
-            <span class="sidebar-icon">♡</span>
-            <span>Produk Favorit</span>
-          </button>
+  <span>Produk Favorit</span>
+</button>
 
           <div class="sidebar-divider"></div>
 
@@ -446,14 +605,31 @@ function handlePhotoUpload(event) {
           <div class="profile-card information-card">
 
             <div class="section-heading">
+  <div class="section-heading-icon">
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      aria-hidden="true"
+    >
+      <circle
+        cx="12"
+        cy="7"
+        r="3.2"
+        stroke="currentColor"
+        stroke-width="1.8"
+      />
 
-              <div class="section-heading-icon">
-                ♙
-              </div>
+      <path
+        d="M5.5 20c.7-3.8 3-5.8 6.5-5.8s5.8 2 6.5 5.8"
+        stroke="currentColor"
+        stroke-width="1.8"
+        stroke-linecap="round"
+      />
+    </svg>
+  </div>
 
-              <h2>Informasi Pribadi</h2>
-
-            </div>
+  <h2>Informasi Pribadi</h2>
+</div>
 
             <div class="information-grid">
 
@@ -628,27 +804,75 @@ function handlePhotoUpload(event) {
 
             <div class="summary-item">
 
-              <span class="summary-icon">
-                ♧
-              </span>
+  <span class="summary-icon">
+    <svg viewBox="0 0 24 24" fill="none">
+      <rect
+        x="7"
+        y="3"
+        width="10"
+        height="18"
+        rx="2"
+        stroke="currentColor"
+        stroke-width="1.8"
+      />
 
-              <span>
-                {{ profile.nomorHp || "-" }}
-              </span>
+      <path
+        d="M10 6h4"
+        stroke="currentColor"
+        stroke-width="1.8"
+        stroke-linecap="round"
+      />
 
-            </div>
+      <circle
+        cx="12"
+        cy="18"
+        r="0.9"
+        fill="currentColor"
+      />
+    </svg>
+  </span>
+
+  <span>
+    {{ profile.nomorHp || "-" }}
+  </span>
+
+</div>
 
             <div class="summary-item">
 
-              <span class="summary-icon">
-                ▣
-              </span>
+  <span class="summary-icon">
+    <svg viewBox="0 0 24 24" fill="none">
+      <rect
+        x="4"
+        y="5"
+        width="16"
+        height="15"
+        rx="2"
+        stroke="currentColor"
+        stroke-width="1.8"
+      />
 
-              <span>
-                {{ tanggalLahirFormatted }}
-              </span>
+      <path
+        d="M8 3v4M16 3v4M4 9h16"
+        stroke="currentColor"
+        stroke-width="1.8"
+        stroke-linecap="round"
+      />
 
-            </div>
+      <path
+        d="M8 13h.01M12 13h.01M16 13h.01M8 17h.01M12 17h.01"
+        stroke="currentColor"
+        stroke-width="2.2"
+        stroke-linecap="round"
+      />
+    </svg>
+  </span>
+
+  <span>
+    {{ tanggalLahirFormatted }}
+  </span>
+
+</div>
 
             <div class="summary-item">
 
@@ -662,17 +886,45 @@ function handlePhotoUpload(event) {
 
             </div>
 
-            <div class="summary-item">
+           <div class="summary-item">
 
-              <span class="summary-icon">
-                ♜
-              </span>
+  <span class="summary-icon">
+    <svg viewBox="0 0 24 24" fill="none">
+      <path
+        d="M4 10h16"
+        stroke="currentColor"
+        stroke-width="1.8"
+        stroke-linecap="round"
+      />
 
-              <span>
-                Belum memiliki toko
-              </span>
+      <path
+        d="M5 10v9h14v-9"
+        stroke="currentColor"
+        stroke-width="1.8"
+        stroke-linejoin="round"
+      />
 
-            </div>
+      <path
+        d="M4 10 6 5h12l2 5"
+        stroke="currentColor"
+        stroke-width="1.8"
+        stroke-linejoin="round"
+      />
+
+      <path
+        d="M9 19v-5h6v5"
+        stroke="currentColor"
+        stroke-width="1.8"
+        stroke-linejoin="round"
+      />
+    </svg>
+  </span>
+
+  <span>
+    Belum memiliki toko
+  </span>
+
+</div>
 
           </div>
 
@@ -704,9 +956,7 @@ function handlePhotoUpload(event) {
 
             <div class="tips-title">
 
-              <span class="tips-icon">
-                ♧
-              </span>
+              
 
               <h2>
                 Tips Keamanan Akun
@@ -880,49 +1130,89 @@ function handlePhotoUpload(event) {
 
     <div class="edit-form">
 
-      <!-- PROVINSI -->
-      <div class="edit-form-group">
-        <label>Provinsi</label>
+<!-- PROVINSI -->
+<div class="edit-form-group">
+  <label>Provinsi</label>
 
-        <input
-          v-model="addressForm.provinsi"
-          type="text"
-          placeholder="Masukkan provinsi"
-        />
-      </div>
+  <select v-model="provinceId">
+    <option value="" disabled>
+      Pilih provinsi
+    </option>
 
-      <!-- KOTA -->
-      <div class="edit-form-group">
-        <label>Kota / Kabupaten</label>
+    <option
+      v-for="province in provinces"
+      :key="province.id"
+      :value="province.id"
+    >
+      {{ province.name }}
+    </option>
+  </select>
+</div>
 
-        <input
-          v-model="addressForm.kota"
-          type="text"
-          placeholder="Masukkan kota / kabupaten"
-        />
-      </div>
+     <!-- KOTA -->
+<div class="edit-form-group">
+  <label>Kota / Kabupaten</label>
 
-      <!-- KECAMATAN -->
-      <div class="edit-form-group">
-        <label>Kecamatan</label>
+  <select
+    v-model="cityId"
+    :disabled="!provinceId"
+  >
+    <option value="" disabled>
+      Pilih kota / kabupaten
+    </option>
 
-        <input
-          v-model="addressForm.kecamatan"
-          type="text"
-          placeholder="Masukkan kecamatan"
-        />
-      </div>
+    <option
+      v-for="city in cities"
+      :key="city.id"
+      :value="city.id"
+    >
+      {{ city.name }}
+    </option>
+  </select>
+</div>
 
-      <!-- KELURAHAN -->
-      <div class="edit-form-group">
-        <label>Kelurahan / Desa</label>
+<!-- KECAMATAN -->
+<div class="edit-form-group">
+  <label>Kecamatan</label>
 
-        <input
-          v-model="addressForm.kelurahan"
-          type="text"
-          placeholder="Masukkan kelurahan / desa"
-        />
-      </div>
+  <select
+    v-model="districtId"
+    :disabled="!cityId"
+  >
+    <option value="" disabled>
+      Pilih kecamatan
+    </option>
+
+    <option
+      v-for="district in districts"
+      :key="district.id"
+      :value="district.id"
+    >
+      {{ district.name }}
+    </option>
+  </select>
+</div>
+<!-- KELURAHAN -->
+<div class="edit-form-group">
+  <label>Kelurahan / Desa</label>
+
+  <select
+    v-model="villageId"
+    :disabled="!districtId"
+  >
+    <option value="" disabled>
+      Pilih kelurahan / desa
+    </option>
+
+    <option
+      v-for="village in villages"
+      :key="village.id"
+      :value="village.id"
+    >
+      {{ village.name }}
+    </option>
+  </select>
+</div>
 
       <!-- KODE POS -->
       <div class="edit-form-group">
@@ -1364,6 +1654,12 @@ function handlePhotoUpload(event) {
   font-size: 27px;
 }
 
+.section-heading-icon svg {
+  width: 27px;
+  height: 27px;
+  display: block;
+}
+
 .section-heading h2 {
   margin: 0;
 
@@ -1622,13 +1918,22 @@ function handlePhotoUpload(event) {
 
 .summary-icon {
   width: 28px;
+  height: 28px;
 
   color: #102d58;
 
-  font-size: 21px;
-
   display: flex;
+  align-items: center;
   justify-content: center;
+
+  flex-shrink: 0;
+}
+
+.summary-icon svg {
+  width: 22px;
+  height: 22px;
+
+  display: block;
 }
 
 .security-card {
