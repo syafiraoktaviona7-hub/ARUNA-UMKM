@@ -1,8 +1,11 @@
+
 <script setup>
 import { ref, computed } from "vue";
 import AddToCartButton from "@/components/AddToCartButton.vue";
 
-const props = defineProps({ item: { type: Object, required: true } });
+const props = defineProps({
+  item: { type: Object, required: true },
+});
 
 const failed = ref(false);
 
@@ -19,20 +22,95 @@ const wa = computed(
     `https://wa.me/${props.item.whatsapp}?text=` +
     encodeURIComponent(`Halo, saya tertarik dengan ${props.item.name}`),
 );
+
+// Membaca daftar produk favorit
+function loadFavorites() {
+  try {
+    const data = JSON.parse(
+      localStorage.getItem("aruna_favorites") || "[]",
+    );
+
+    return Array.isArray(data) ? data : [];
+  } catch {
+    return [];
+  }
+}
+
+const favorites = ref(loadFavorites());
+
+// Memeriksa apakah produk ini sudah difavoritkan
+const isFavorite = computed(() =>
+  favorites.value.some(
+    (product) => String(product.id ?? product.key) === String(props.item.id),
+  ),
+);
+
+// Menambah atau menghapus produk dari favorit
+function toggleFavorite() {
+  const productId = String(props.item.id);
+
+  if (isFavorite.value) {
+    favorites.value = favorites.value.filter(
+      (product) =>
+        String(product.id ?? product.key) !== productId,
+    );
+  } else {
+    favorites.value = [...favorites.value, { ...props.item }];
+  }
+
+  localStorage.setItem(
+    "aruna_favorites",
+    JSON.stringify(favorites.value),
+  );
+}
 </script>
+
 
 <template>
   <article class="card">
-    <div class="media">
-      <img
-        v-if="!failed"
-        :src="item.image"
-        :alt="item.name"
-        loading="lazy"
-        @error="failed = true"
+    
+<div class="media">
+  <img
+    v-if="!failed"
+    :src="item.image"
+    :alt="item.name"
+    loading="lazy"
+    @error="failed = true"
+  />
+  <div v-else class="ph" aria-hidden="true">
+    {{ item.name.charAt(0) }}
+  </div>
+
+  <!-- Tombol love di pojok kanan atas gambar -->
+  <button
+    type="button"
+    class="favorite-button"
+    :class="{ active: isFavorite }"
+    :aria-label="
+      isFavorite
+        ? 'Hapus dari produk favorit'
+        : 'Tambahkan ke produk favorit'
+    "
+    :aria-pressed="isFavorite"
+    :title="isFavorite ? 'Hapus dari favorit' : 'Tambah ke favorit'"
+    @click.stop="toggleFavorite"
+  >
+    <svg
+      viewBox="0 0 24 24"
+      :fill="isFavorite ? 'currentColor' : 'none'"
+      stroke="currentColor"
+      stroke-width="1.8"
+      stroke-linecap="round"
+      stroke-linejoin="round"
+      aria-hidden="true"
+    >
+      <path
+        d="M20.8 8.8c0 5.1-8.8 10-8.8 10s-8.8-4.9-8.8-10A4.6 4.6 0 0 1 12 6.1a4.6 4.6 0 0 1 8.8 2.7Z"
       />
-      <div v-else class="ph" aria-hidden="true">{{ item.name.charAt(0) }}</div>
-    </div>
+    </svg>
+  </button>
+</div>
+
 
     <div class="body">
       <h3>
@@ -70,29 +148,40 @@ const wa = computed(
           </p>
         </div>
 
-        <div class="actions">
-          <AddToCartButton :item="item" :disabled="item.stok < 1" />
-          <a
-            :href="wa"
-            target="_blank"
-            rel="noopener"
-            class="wa"
-            :aria-label="`Hubungi ${item.shop} lewat WhatsApp`"
-          >
-            <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
-              <path
-                d="M12 3a9 9 0 0 0-7.8 13.5L3 21l4.6-1.2A9 9 0 1 0 12 3z"
-                stroke="currentColor"
-                stroke-width="1.8"
-                stroke-linejoin="round"
-              />
-              <path
-                d="M9 8.5c0 3.5 3 6.5 6.5 6.5l1-1.5-2-1-1 .8c-1-.4-2-1.4-2.4-2.4l.8-1-1-2z"
-                fill="currentColor"
-              />
-            </svg>
-          </a>
-        </div>
+       
+
+
+<div class="actions">
+  <!-- Keranjang dan WhatsApp tetap berdampingan -->
+  <AddToCartButton
+    :item="item"
+    :disabled="item.stok < 1"
+  />
+
+  <a
+    :href="wa"
+    target="_blank"
+    rel="noopener"
+    class="wa"
+    :aria-label="`Hubungi ${item.shop} lewat WhatsApp`"
+  >
+    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path
+        d="M12 3a9 9 0 0 0-7.8 13.5L3 21l4.6-1.2A9 9 0 1 0 12 3z"
+        stroke="currentColor"
+        stroke-width="1.8"
+        stroke-linejoin="round"
+      />
+      <path
+        d="M9 8.5c0 3.5 3 6.5 6.5 6.5l1-1.5-2-1-1 .8c-1-.4-2-1.4-2.4-2.4l.8-1-1-2z"
+        fill="currentColor"
+      />
+    </svg>
+  </a>
+</div>
+
+
+
       </div>
     </div>
   </article>
@@ -116,10 +205,13 @@ const wa = computed(
   transform: translateY(-3px);
 }
 
+
 .media {
+  position: relative;
   aspect-ratio: 4 / 3;
   background: #e9f1f8;
 }
+
 .media img {
   width: 100%;
   height: 100%;
@@ -223,8 +315,11 @@ h3 {
   font-weight: 600;
 }
 
+
+
 .actions {
   position: relative;
+<<<<<<< Updated upstream
   z-index: 3;
   display: flex;
   align-items: center;
@@ -251,6 +346,86 @@ h3 {
 }
 
 /* WhatsApp */
+=======
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+
+.favorite-button {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  z-index: 3;
+
+  width: 38px;
+  height: 38px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+
+  border: 1px solid #dce8f5;
+  border-radius: 50%;
+  background: #fff;
+  color: #7d8fa6;
+  cursor: pointer;
+
+  transition:
+    color 0.2s ease,
+    background 0.2s ease,
+    border-color 0.2s ease;
+}
+
+.favorite-button svg {
+  width: 19px;
+  height: 19px;
+}
+
+.favorite-button:hover,
+.favorite-button.active {
+  color: #e14b67;
+  border-color: #f4c6d0;
+  background: #fff0f3;
+}
+
+
+
+
+.favorite-button {
+  width: 38px;
+  height: 38px;
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 1px solid #dce8f5;
+  border-radius: 50%;
+  background: #fff;
+  color: #7d8fa6;
+  cursor: pointer;
+  transition:
+    color 0.2s ease,
+    background 0.2s ease,
+    border-color 0.2s ease;
+}
+
+.favorite-button svg {
+  width: 19px;
+  height: 19px;
+}
+
+.favorite-button:hover,
+.favorite-button.active {
+  color: #e14b67;
+  border-color: #f4c6d0;
+  background: #fff0f3;
+}
+
+>>>>>>> Stashed changes
 .wa {
   width: 44px;
   height: 44px;

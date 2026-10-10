@@ -1,10 +1,12 @@
 <script setup>
 import { ref, computed } from "vue";
-import { useRouter } from "vue-router";
+import { useRouter, useRoute } from "vue-router";
 import { useAuth } from "@/composables/useAuth";
 import { useWilayahFilter } from "@/composables/useWilayahFilter";
+import { getOrdersByUser } from "@/composables/useOrders";
 
 const router = useRouter();
+const route = useRoute();
 const {
   user,
   logout,
@@ -44,6 +46,43 @@ const addressForm = ref({
 });
 
 const profile = computed(() => user.value || {});
+const orders = computed(() => getOrdersByUser(user.value));
+
+
+function loadFavorites() {
+  try {
+    const data = JSON.parse(
+      localStorage.getItem("aruna_favorites") || "[]"
+    );
+
+    return Array.isArray(data) ? data : [];
+  } catch {
+    return [];
+  }
+}
+
+const favorites = ref(loadFavorites());
+
+function hapusFavorit(product) {
+  const productId = product.id ?? product.key;
+
+  favorites.value = favorites.value.filter((item) => {
+    return (item.id ?? item.key) !== productId;
+  });
+
+  localStorage.setItem(
+    "aruna_favorites",
+    JSON.stringify(favorites.value)
+  );
+}
+
+function formatRupiah(value) {
+  return new Intl.NumberFormat("id-ID", {
+    style: "currency",
+    currency: "IDR",
+    maximumFractionDigits: 0,
+  }).format(Number(value) || 0);
+}
 
 const displayName = computed(() => {
   return profile.value.name || "Customer ARUNA";
@@ -152,12 +191,12 @@ async function simpanProfil() {
 
 function bukaRiwayatPesanan() {
   showMenu.value = false;
-  alert("Halaman Riwayat Pesanan akan dibuat berikutnya.");
+  router.push("/riwayat-pesanan");
 }
 
 function bukaFavorit() {
   showMenu.value = false;
-  alert("Halaman Produk Favorit akan dibuat berikutnya.");
+  router.push("/produk-favorit");
 }
 
 async function bukaEditAlamat() {
@@ -383,8 +422,9 @@ function handlePhotoUpload(event) {
 
         <span>›</span>
 
-        <strong>Profil Saya</strong>
-
+<strong>
+  {{ route.path === "/riwayat-pesanan" ? "Riwayat Pesanan" : "Profil Saya" }}
+</strong>
       </div>
 
 
@@ -398,9 +438,11 @@ function handlePhotoUpload(event) {
 
         <aside class="profile-sidebar">
 
-         <button
+       <button
   type="button"
-  class="sidebar-item active"
+  class="sidebar-item"
+  :class="{ active: route.path === '/profil' }"
+  @click="router.push('/profil')"
 >
   <span class="sidebar-icon">
     <svg viewBox="0 0 24 24" fill="none">
@@ -422,9 +464,10 @@ function handlePhotoUpload(event) {
 
   <span>Profil Saya</span>
 </button>
-         <button
+        <button
   type="button"
   class="sidebar-item"
+  :class="{ active: route.path === '/riwayat-pesanan' }"
   @click="bukaRiwayatPesanan"
 >
   <span class="sidebar-icon">
@@ -446,10 +489,10 @@ function handlePhotoUpload(event) {
 
   <span>Riwayat Pesanan</span>
 </button>
-
-          <button
+<button
   type="button"
   class="sidebar-item"
+  :class="{ active: route.path === '/produk-favorit' }"
   @click="bukaFavorit"
 >
   <span class="sidebar-icon">
@@ -469,14 +512,7 @@ function handlePhotoUpload(event) {
 
           <div class="sidebar-divider"></div>
 
-          <button
-            type="button"
-            class="sidebar-item"
-            @click="bukaPengaturan"
-          >
-            <span class="sidebar-icon">⚙</span>
-            <span>Pengaturan Akun</span>
-          </button>
+         
 
           <button
             type="button"
@@ -494,7 +530,12 @@ function handlePhotoUpload(event) {
              CENTER
         ============================= -->
 
-        <section class="profile-center">
+    
+<section
+  v-if="route.path === '/profil'"
+  class="profile-center"
+>
+
 
           <!-- PROFILE HEADER -->
 
@@ -776,11 +817,265 @@ function handlePhotoUpload(event) {
         </section>
 
 
+<section
+  v-else-if="route.path === '/riwayat-pesanan'"
+  class="profile-center"
+>
+
+  <div class="profile-card orders-card">
+    <div class="orders-heading">
+      <div>
+        <h1>Riwayat Pesanan</h1>
+        <p>
+          Pantau dan lihat pesanan produk UMKM yang pernah kamu lakukan.
+        </p>
+      </div>
+
+      <div class="orders-heading-icon">
+        <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <path
+            d="M6 3.5h12v17H6z"
+            stroke="currentColor"
+            stroke-width="1.8"
+            stroke-linejoin="round"
+          />
+          <path
+            d="M9 7h6M9 10.5h6M9 14h4"
+            stroke="currentColor"
+            stroke-width="1.8"
+            stroke-linecap="round"
+          />
+        </svg>
+      </div>
+    </div>
+
+    <div class="orders-divider"></div>
+
+
+<!-- TAMPILAN JIKA BELUM ADA PESANAN -->
+<div v-if="orders.length === 0" class="orders-empty">
+  <div class="orders-empty-icon">
+    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path
+        d="M4 7.5 12 4l8 3.5v9L12 20l-8-3.5v-9Z"
+        stroke="currentColor"
+        stroke-width="1.8"
+        stroke-linejoin="round"
+      />
+      <path
+        d="M4.5 7.5 12 11l7.5-3.5M12 11v9"
+        stroke="currentColor"
+        stroke-width="1.8"
+        stroke-linejoin="round"
+      />
+    </svg>
+  </div>
+
+  <h2>Belum Ada Pesanan</h2>
+
+  <p>
+    Kamu belum memiliki pesanan. Yuk, jelajahi produk UMKM lokal
+    dan temukan produk favoritmu!
+  </p>
+
+  <button
+    type="button"
+    class="orders-shop-button"
+    @click="router.push('/')"
+  >
+    Jelajahi Produk
+  </button>
+</div>
+
+<!-- DAFTAR PESANAN CUSTOMER -->
+<div v-else class="orders-list">
+  <article
+    v-for="order in orders"
+    :key="order.id"
+    class="order-item"
+  >
+    <div class="order-item-header">
+      <div>
+        <strong>{{ order.id }}</strong>
+        <p>{{ new Date(order.createdAt).toLocaleString("id-ID") }}</p>
+      </div>
+
+      <span class="order-status">
+        {{ order.status || "Menunggu Konfirmasi" }}
+      </span>
+    </div>
+
+    <div class="order-shop">
+      Nama toko: {{ order.shop || "-" }}
+    </div>
+
+    <div
+      v-for="(item, index) in order.items"
+      :key="item.key || item.id || index"
+      class="order-product"
+    >
+      <img
+        v-if="item.image"
+        :src="item.image"
+        :alt="item.name"
+      />
+
+      <div class="order-product-info">
+        <strong>{{ item.name }}</strong>
+        <span>{{ item.qty }} produk × {{ formatRupiah(item.price) }}</span>
+      </div>
+
+      <strong>
+        {{ formatRupiah(item.qty * item.price) }}
+      </strong>
+    </div>
+
+    <div class="order-total">
+      <span>Total Pembayaran</span>
+      <strong>{{ formatRupiah(order.total) }}</strong>
+    </div>
+
+    <div class="order-payment">
+      Metode pembayaran:
+      {{ order.payment === "transfer"
+        ? "Transfer Bank"
+        : order.payment === "ewallet"
+          ? "E-Wallet"
+          : order.payment === "cod"
+            ? "Bayar di Tempat (COD)"
+            : order.payment || "-" }}
+    </div>
+  </article>
+</div>
+
+  </div>
+</section>
+
+
+<!-- PRODUK FAVORIT -->
+
+<section
+  v-else-if="route.path === '/produk-favorit'"
+  class="profile-center"
+>
+
+  <div class="profile-card favorites-card">
+    <div class="favorites-heading">
+      <div>
+        <h1>Produk Favorit</h1>
+        <p>
+          Kumpulan produk UMKM yang kamu sukai dan ingin kamu simpan.
+        </p>
+      </div>
+
+      <div class="favorites-heading-icon">
+        <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <path
+            d="M20.8 8.8c0 5.1-8.8 10-8.8 10s-8.8-4.9-8.8-10A4.6 4.6 0 0 1 12 6.1a4.6 4.6 0 0 1 8.8 2.7Z"
+            stroke="currentColor"
+            stroke-width="1.8"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          />
+        </svg>
+      </div>
+    </div>
+
+    <div class="favorites-divider"></div>
+
+    <!-- JIKA BELUM ADA FAVORIT -->
+    <div v-if="favorites.length === 0" class="favorites-empty">
+      <div class="favorites-empty-icon">
+        <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <path
+            d="M20.8 8.8c0 5.1-8.8 10-8.8 10s-8.8-4.9-8.8-10A4.6 4.6 0 0 1 12 6.1a4.6 4.6 0 0 1 8.8 2.7Z"
+            stroke="currentColor"
+            stroke-width="1.8"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          />
+        </svg>
+      </div>
+
+      <h2>Belum Ada Produk Favorit</h2>
+
+      <p>
+        Simpan produk yang kamu sukai agar lebih mudah ditemukan
+        kembali nanti.
+      </p>
+
+      <button
+        type="button"
+        class="favorites-shop-button"
+        @click="router.push('/')"
+      >
+        Jelajahi Produk
+      </button>
+    </div>
+
+    <!-- DAFTAR PRODUK FAVORIT -->
+    <div v-else class="favorites-grid">
+      <article
+        v-for="(product, index) in favorites"
+        :key="product.id ?? product.key ?? index"
+        class="favorite-product-card"
+      >
+        <div class="favorite-product-image">
+          <img
+            v-if="product.image || product.foto || product.gambar"
+            :src="product.image || product.foto || product.gambar"
+            :alt="product.name || product.nama || 'Produk UMKM'"
+          />
+
+          <div v-else class="favorite-no-image">
+            Gambar produk
+          </div>
+
+          <button
+            type="button"
+            class="favorite-remove-button"
+            aria-label="Hapus dari produk favorit"
+            title="Hapus dari favorit"
+            @click="hapusFavorit(product)"
+          >
+            <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+              <path
+                d="M20.8 8.8c0 5.1-8.8 10-8.8 10s-8.8-4.9-8.8-10A4.6 4.6 0 0 1 12 6.1a4.6 4.6 0 0 1 8.8 2.7Z"
+              />
+            </svg>
+          </button>
+        </div>
+
+        <div class="favorite-product-info">
+          <h3>{{ product.name || product.nama || "Produk UMKM" }}</h3>
+
+          <p class="favorite-product-price">
+            {{ formatRupiah(product.price ?? product.harga) }}
+          </p>
+
+          <button
+            type="button"
+            class="favorite-detail-button"
+            @click="router.push('/')"
+          >
+            Jelajahi Produk
+          </button>
+        </div>
+      </article>
+    </div>
+  </div>
+</section>
+
+
+
         <!-- ============================
              RIGHT SIDEBAR
         ============================= -->
 
-        <aside class="right-column">
+<aside
+  v-if="route.path === '/profil'"
+  class="right-column"
+>
 
           <!-- ACCOUNT SUMMARY -->
 
@@ -1423,6 +1718,236 @@ function handlePhotoUpload(event) {
 
 .sidebar-item.logout {
   color: #172f58;
+}
+
+/* ================================
+   RIWAYAT PESANAN
+================================ */
+
+.orders-card {
+  padding: 28px;
+  min-height: 420px;
+}
+
+.orders-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+}
+
+.orders-heading h1 {
+  margin: 0;
+  color: #142d56;
+  font-size: 27px;
+  font-weight: 700;
+}
+
+.orders-heading p {
+  margin: 8px 0 0;
+  color: #627b9f;
+  font-size: 13px;
+  line-height: 1.7;
+}
+
+.orders-heading-icon {
+  width: 48px;
+  height: 48px;
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  border-radius: 12px;
+  background: #e5f2ff;
+  color: #0865d8;
+}
+
+.orders-heading-icon svg {
+  width: 27px;
+  height: 27px;
+}
+
+.orders-divider {
+  height: 1px;
+  margin: 22px 0;
+  background: #e2eaf3;
+}
+
+.orders-empty {
+  min-height: 260px;
+  padding: 24px 16px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+}
+
+.orders-empty-icon {
+  width: 76px;
+  height: 76px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: #eaf4ff;
+  color: #0865d8;
+}
+
+.orders-empty-icon svg {
+  width: 38px;
+  height: 38px;
+}
+
+.orders-empty h2 {
+  margin: 18px 0 8px;
+  color: #142d56;
+  font-size: 19px;
+  font-weight: 700;
+}
+
+.orders-empty p {
+  max-width: 390px;
+  margin: 0;
+  color: #627b9f;
+  font-size: 13px;
+  line-height: 1.8;
+}
+
+
+.orders-list {
+  display: grid;
+  gap: 16px;
+}
+
+.order-item {
+  padding: 18px;
+  border: 1px solid #e2eaf3;
+  border-radius: 12px;
+  background: #fff;
+}
+
+.order-item-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid #e8eef6;
+}
+
+.order-item-header strong {
+  color: #142d56;
+  font-size: 14px;
+}
+
+.order-item-header p {
+  margin: 5px 0 0;
+  color: #7186a2;
+  font-size: 12px;
+}
+
+.order-status {
+  padding: 6px 10px;
+  border-radius: 20px;
+  background: #fff4d8;
+  color: #946200;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.order-shop {
+  margin: 14px 0;
+  color: #526d8f;
+  font-size: 12px;
+}
+
+.order-product {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 0;
+  border-bottom: 1px solid #edf1f7;
+}
+
+.order-product img {
+  width: 58px;
+  height: 58px;
+  border-radius: 8px;
+  object-fit: cover;
+}
+
+.order-product-info {
+  display: grid;
+  flex: 1;
+  gap: 5px;
+}
+
+.order-product-info strong {
+  color: #203b60;
+  font-size: 13px;
+}
+
+.order-product-info span {
+  color: #7186a2;
+  font-size: 12px;
+}
+
+.order-product > strong {
+  color: #203b60;
+  font-size: 12px;
+}
+
+.order-total {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 15px;
+  color: #203b60;
+  font-size: 13px;
+}
+
+.order-total strong {
+  color: #0865d8;
+}
+
+.order-payment {
+  margin-top: 10px;
+  color: #7186a2;
+  font-size: 12px;
+}
+
+
+.orders-shop-button {
+  min-height: 43px;
+  margin-top: 22px;
+  padding: 0 20px;
+  border: none;
+  border-radius: 9px;
+  background: #0865d8;
+  color: #ffffff;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+.orders-shop-button:hover {
+  background: #0758bf;
+}
+
+@media (max-width: 600px) {
+  .orders-card {
+    padding: 22px 18px;
+  }
+
+  .orders-heading h1 {
+    font-size: 22px;
+  }
+
+  .orders-heading-icon {
+    width: 42px;
+    height: 42px;
+  }
 }
 
 
@@ -2412,5 +2937,226 @@ function handlePhotoUpload(event) {
   }
 
 }
+
+
+/* ================================
+   PRODUK FAVORIT
+================================ */
+
+.favorites-card {
+  min-width: 0;
+  padding: 28px;
+}
+
+.favorites-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.favorites-heading h1 {
+  margin: 0;
+  color: #142d56;
+  font-size: 27px;
+  font-weight: 700;
+}
+
+.favorites-heading p {
+  margin: 8px 0 0;
+  color: #627b9f;
+  font-size: 13px;
+  line-height: 1.7;
+}
+
+.favorites-heading-icon {
+  width: 48px;
+  height: 48px;
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  border-radius: 12px;
+  background: #e5f2ff;
+  color: #0865d8;
+}
+
+.favorites-heading-icon svg {
+  width: 27px;
+  height: 27px;
+}
+
+.favorites-divider {
+  height: 1px;
+  margin: 22px 0;
+  background: #e2eaf3;
+}
+
+.favorites-empty {
+  min-height: 280px;
+  padding: 24px 16px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+}
+
+.favorites-empty-icon {
+  width: 76px;
+  height: 76px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: #eaf4ff;
+  color: #0865d8;
+}
+
+.favorites-empty-icon svg {
+  width: 38px;
+  height: 38px;
+}
+
+.favorites-empty h2 {
+  margin: 18px 0 8px;
+  color: #142d56;
+  font-size: 19px;
+}
+
+.favorites-empty p {
+  max-width: 390px;
+  margin: 0;
+  color: #627b9f;
+  font-size: 13px;
+  line-height: 1.8;
+}
+
+.favorites-shop-button,
+.favorite-detail-button {
+  min-height: 40px;
+  padding: 0 16px;
+  border: none;
+  border-radius: 8px;
+  background: #0865d8;
+  color: #fff;
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.favorites-shop-button {
+  margin-top: 20px;
+}
+
+.favorites-shop-button:hover,
+.favorite-detail-button:hover {
+  background: #0758bf;
+}
+
+.favorites-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.favorite-product-card {
+  min-width: 0;
+  overflow: hidden;
+  border: 1px solid #e2eaf3;
+  border-radius: 12px;
+  background: #fff;
+  transition: box-shadow 0.2s ease, transform 0.2s ease;
+}
+
+.favorite-product-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 8px 22px rgba(54, 108, 164, 0.1);
+}
+
+.favorite-product-image {
+  position: relative;
+  height: 170px;
+  background: #f1f7fd;
+}
+
+.favorite-product-image img {
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: cover;
+}
+
+.favorite-no-image {
+  height: 100%;
+  display: grid;
+  place-items: center;
+  color: #7890ad;
+  font-size: 12px;
+}
+
+.favorite-remove-button {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  width: 36px;
+  height: 36px;
+  display: grid;
+  place-items: center;
+  border: 1px solid #e2eaf3;
+  border-radius: 50%;
+  background: #fff;
+  color: #e14b67;
+  cursor: pointer;
+}
+
+.favorite-remove-button svg {
+  width: 19px;
+  height: 19px;
+}
+
+.favorite-remove-button:hover {
+  background: #fff0f3;
+}
+
+.favorite-product-info {
+  padding: 14px;
+}
+
+.favorite-product-info h3 {
+  margin: 0;
+  color: #142d56;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.favorite-product-price {
+  margin: 8px 0 14px;
+  color: #0865d8;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.favorite-detail-button {
+  width: 100%;
+}
+
+@media (max-width: 600px) {
+  .favorites-card {
+    padding: 22px 18px;
+  }
+
+  .favorites-heading h1 {
+    font-size: 22px;
+  }
+
+  .favorites-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .favorite-product-image {
+    height: 200px;
+  }
+}
+
 
 </style>

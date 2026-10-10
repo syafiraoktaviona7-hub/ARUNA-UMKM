@@ -44,7 +44,11 @@ const router = createRouter({
     },
 
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
                 {
+=======
+        {
+>>>>>>> Stashed changes
             path: "/produk/:id",
             name: "produk-detail",
             component: ProdukDetailPage,
@@ -66,7 +70,7 @@ const router = createRouter({
             },
         },
 
-                {
+        {
             path: "/umkm/:id",
             name: "umkm-detail",
             component: UmkmDetailPage,
@@ -95,6 +99,20 @@ const router = createRouter({
             name: "profile",
             component: ProfilePage,
         },
+
+        {
+            path: "/riwayat-pesanan",
+            name: "riwayat-pesanan",
+            component: ProfilePage,
+        },
+
+
+        {
+            path: "/produk-favorit",
+            name: "produk-favorit",
+            component: ProfilePage,
+        },
+
 
         {
             path: "/checkout",
