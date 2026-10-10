@@ -13,6 +13,13 @@ import ProdukDetailPage from "@/views/ProdukDetailPage.vue";
 import UmkmDetailPage from "@/views/UmkmDetailPage.vue";
 import JasaDetailPage from "@/views/JasaDetailPage.vue";
 
+// Penjual
+import PenjualLayout from "@/layouts/PenjualLayout.vue";
+import PenjualDashboard from "@/views/penjual/DashboardPage.vue";
+import PenjualProduk from "@/views/penjual/ProdukPage.vue";
+import PenjualPesanan from "@/views/penjual/PesananPage.vue";
+import PenjualProfil from "@/views/penjual/ProfilTokoPage.vue";
+
 import { katalog } from "@/services/api";
 import { jasaList } from "@/data/jasa";
 import { useAuth } from "@/composables/useAuth";
@@ -22,9 +29,6 @@ import CustomerVerifyPhonePage from "@/views/CustomerVerifyPhonePage.vue";
 // =========================
 // HELPER: cek data ada di server
 // =========================
-// true  = data ada
-// 404   = data tidak ditemukan
-// Error jaringan dianggap ada agar halaman tetap terbuka
 async function adaDiServer(ambil) {
   try {
     await ambil();
@@ -41,20 +45,18 @@ async function adaDiServer(ambil) {
 function keNotFound(to) {
   return {
     name: "notfound",
-    params: {
-      pathMatch: to.path.substring(1).split("/"),
-    },
+    params: { pathMatch: to.path.substring(1).split("/") },
     query: to.query,
     hash: to.hash,
   };
 }
 
 // =========================
-// HELPER: cek user sudah login
+// HELPER: user sudah login?
 // =========================
 function isLoggedIn() {
-  const { user } = useAuth();
-  return !!user?.value;
+  const { isLoggedIn } = useAuth();
+  return isLoggedIn.value;
 }
 
 const router = createRouter({
@@ -87,9 +89,7 @@ const router = createRouter({
       name: "produk-detail",
       component: ProdukDetailPage,
       beforeEnter: async (to) => {
-        const exists = await adaDiServer(() =>
-          katalog.produkDetail(to.params.id),
-        );
+        const exists = await adaDiServer(() => katalog.produkDetail(to.params.id));
         return exists ? true : keNotFound(to);
       },
     },
@@ -120,9 +120,7 @@ const router = createRouter({
       name: "article",
       component: ArticlePage,
       beforeEnter: async (to) => {
-        const exists = await adaDiServer(() =>
-          katalog.artikelDetail(to.params.id),
-        );
+        const exists = await adaDiServer(() => katalog.artikelDetail(to.params.id));
         return exists ? true : keNotFound(to);
       },
     },
@@ -168,7 +166,7 @@ const router = createRouter({
     },
 
     // =========================
-    // PROTECTED ROUTES (perlu login)
+    // PROTECTED ROUTES (customer)
     // =========================
 
     // PROFIL
@@ -204,6 +202,41 @@ const router = createRouter({
     },
 
     // =========================
+    // PENJUAL
+    // =========================
+    {
+      path: "/penjual",
+      component: PenjualLayout,
+      meta: { requiresAuth: true, role: "penjual" },
+      children: [
+        {
+          path: "",
+          name: "penjual-dashboard",
+          component: PenjualDashboard,
+          meta: { title: "Dashboard Penjual — ARUNA" },
+        },
+        {
+          path: "produk",
+          name: "penjual-produk",
+          component: PenjualProduk,
+          meta: { title: "Produk Saya — ARUNA" },
+        },
+        {
+          path: "pesanan",
+          name: "penjual-pesanan",
+          component: PenjualPesanan,
+          meta: { title: "Pesanan — ARUNA" },
+        },
+        {
+          path: "profil",
+          name: "penjual-profil",
+          component: PenjualProfil,
+          meta: { title: "Profil Toko — ARUNA" },
+        },
+      ],
+    },
+
+    // =========================
     // ADMIN ROUTES
     // =========================
     ...adminRoutes,
@@ -220,20 +253,13 @@ const router = createRouter({
   ],
 
   scrollBehavior(to, from, saved) {
-    if (saved) {
-      return saved;
-    }
+    if (saved) return saved;
 
     if (to.hash) {
       const wait = from.name !== to.name ? 350 : 0;
-
       return new Promise((resolve) => {
         setTimeout(() => {
-          resolve({
-            el: to.hash,
-            top: 70,
-            behavior: "smooth",
-          });
+          resolve({ el: to.hash, top: 70, behavior: "smooth" });
         }, wait);
       });
     }
@@ -245,21 +271,29 @@ const router = createRouter({
 // =========================
 // GLOBAL GUARD
 // =========================
-router.beforeEach((to, from, next) => {
-  // Cek apakah route butuh login
+router.beforeEach((to) => {
+  const { isLoggedIn, user } = useAuth();
+
+  // Cek requiresAuth di SEMUA route yang match (termasuk parent dari nested route)
   const requiresAuth = to.matched.some((r) => r.meta?.requiresAuth);
 
-  if (requiresAuth && !isLoggedIn()) {
-    return next({
+  if (requiresAuth && !isLoggedIn.value) {
+    return {
       name: "login",
       query: { redirect: to.fullPath },
-    });
+    };
   }
 
-  next();
+  // Cek role: ambil meta.role dari route yang match (parent atau child)
+  const routeRole = to.matched.map((r) => r.meta?.role).find((r) => !!r);
+  if (routeRole && user.value?.role !== routeRole) {
+    return { name: "home" };
+  }
+
+  return true;
 });
 
-// Update title dokumen
+// Update document title
 router.afterEach((to) => {
   const title = to.meta?.title;
   if (title) {
