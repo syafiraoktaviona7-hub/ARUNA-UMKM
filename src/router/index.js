@@ -10,11 +10,20 @@ import LoginPage from "@/views/LoginPage.vue";
 import ProfilePage from "@/views/ProfilePage.vue";
 import CheckoutPage from "@/views/CheckoutPage.vue";
 import ProdukDetailPage from "@/views/ProdukDetailPage.vue";
-import { produkList } from "@/data/produk";
+import { katalog } from "@/services/api";
 import UmkmDetailPage from "@/views/UmkmDetailPage.vue";
 
-import { articles } from "@/data/articles";
 import { adminRoutes, installAdminGuard } from "./adminRoutes";
+
+// true = ada. 404 dari server = tidak ada. Galat jaringan dianggap ada supaya halaman tetap terbuka.
+async function adaDiServer(ambil) {
+    try {
+        await ambil();
+        return true;
+    } catch (e) {
+        return e.status !== 404;
+    }
+}
 
 const router = createRouter({
     history: createWebHistory(),
@@ -35,10 +44,8 @@ const router = createRouter({
             path: "/produk/:id",
             name: "produk-detail",
             component: ProdukDetailPage,
-            beforeEnter: (to) => {
-                const exists = produkList.some(
-                    (p) => String(p.id) === String(to.params.id),
-                );
+            beforeEnter: async (to) => {
+                const exists = await adaDiServer(() => katalog.produkDetail(to.params.id));
 
                 if (exists) {
                     return true;
@@ -106,10 +113,8 @@ const router = createRouter({
             component: ArticlePage,
 
             // Artikel yang tidak ada -> tampilkan 404 tanpa mengubah alamat
-            beforeEnter: (to) => {
-                const exists = articles.some(
-                    (a) => String(a.id) === String(to.params.id),
-                );
+            beforeEnter: async (to) => {
+                const exists = await adaDiServer(() => katalog.artikelDetail(to.params.id));
 
                 if (exists) {
                     return true;

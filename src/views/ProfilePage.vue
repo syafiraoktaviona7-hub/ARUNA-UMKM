@@ -122,7 +122,7 @@ function bukaProfil() {
   router.push("/profil");
 }
 
-function simpanProfil() {
+async function simpanProfil() {
   try {
     if (!editForm.value.name.trim()) {
       alert("Nama lengkap wajib diisi.");
@@ -134,7 +134,7 @@ function simpanProfil() {
       return;
     }
 
-    updateUser({
+    await updateUser({
       name: editForm.value.name.trim(),
       email: editForm.value.email.trim(),
       nomorHp: editForm.value.nomorHp,
@@ -226,7 +226,7 @@ async function bukaEditAlamat() {
   }
 }
 
-function simpanAlamat() {
+async function simpanAlamat() {
   try {
     if (!provinceId.value) {
       alert("Provinsi wajib dipilih.");
@@ -269,7 +269,7 @@ function simpanAlamat() {
       (item) => item.id === villageId.value
     );
 
-    updateUser({
+    await updateUser({
       provinsi: selectedProvince?.name || "",
       kota: selectedCity?.name || "",
       kecamatan: selectedDistrict?.name || "",

@@ -8,7 +8,7 @@ const bgImage = "/images/aruna-hero.png";
 
 const route = useRoute();
 const router = useRouter();
-const { loginAdmin } = useAuth();
+const { loginAdmin, logout } = useAuth();
 
 const email = ref("");
 const password = ref("");
@@ -26,7 +26,11 @@ async function handleSubmit() {
 
   loading.value = true;
   try {
-    await loginAdmin(email.value, password.value);
+    const akun = await loginAdmin(email.value, password.value);
+    if (akun.role !== "admin") {
+      logout();
+      throw new Error("Akun ini bukan akun admin.");
+    }
 
     // Hanya terima redirect ke halaman admin agar tidak jadi open redirect
     const target = String(route.query.redirect || "");
@@ -101,11 +105,6 @@ async function handleSubmit() {
             {{ loading ? "Memeriksa..." : "Masuk" }}
           </button>
         </form>
-
-        <p class="demo">
-          Akun demo prototipe: <strong>admin@aruna.id</strong> /
-          <strong>admin123</strong>
-        </p>
 
         <RouterLink to="/" class="back">Kembali ke beranda</RouterLink>
       </div>

@@ -1,6 +1,6 @@
 <script setup>
 import { ref, computed, onMounted, onUnmounted } from "vue";
-import { produkList } from "@/data/produk";
+import { useKatalog } from "@/composables/useKatalog";
 import { categories } from "@/data/categories";
 import ProdukCard from "./ProdukCard.vue";
 
@@ -9,6 +9,9 @@ const props = defineProps({
   query: { type: String, default: "" },
 });
 defineEmits(["reset"]);
+
+const { produkList, loadProduk } = useKatalog();
+loadProduk();
 
 const category = defineModel("category", { type: String, default: "Semua" });
 
@@ -42,7 +45,7 @@ const norm = (s = "") =>
 const results = computed(() => {
   const { province, city, district } = props.area;
   const q = props.query.toLowerCase().trim();
-  return produkList.filter(
+  return produkList.value.filter(
     (u) =>
       (!province || norm(u.province) === norm(province)) &&
       (!city || norm(u.city) === norm(city)) &&

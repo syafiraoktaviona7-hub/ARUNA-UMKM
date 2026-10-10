@@ -1,11 +1,14 @@
 <script setup>
 import { computed } from "vue";
-import { jasaCategories } from "@/data/jasa";
+import { useKatalog } from "@/composables/useKatalog";
 
 const props = defineProps({ item: { type: Object, required: true } });
 
+const { jasaCategories, loadJasa } = useKatalog();
+loadJasa();
+
 const icon = computed(
-  () => jasaCategories.find((c) => c.name === props.item.category)?.icon ?? "",
+  () => jasaCategories.value.find((c) => c.name === props.item.category)?.icon ?? "",
 );
 </script>
 

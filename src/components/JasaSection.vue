@@ -1,6 +1,6 @@
 <script setup>
 import { ref, computed } from "vue";
-import { jasaList, jasaCategories } from "@/data/jasa";
+import { useKatalog } from "@/composables/useKatalog";
 import JasaCard from "./JasaCard.vue";
 
 const props = defineProps({
@@ -10,6 +10,9 @@ const props = defineProps({
 defineEmits(["reset"]);
 
 const category = ref("Semua");
+
+const { jasaList, jasaCategories, loadJasa } = useKatalog();
+loadJasa();
 
 // "Kota Surabaya" dan "Surabaya" dianggap sama
 const norm = (s = "") =>
@@ -21,12 +24,12 @@ const norm = (s = "") =>
 const pick = (name) => {
   category.value = category.value === name ? "Semua" : name;
 };
-const countOf = (name) => jasaList.filter((j) => j.category === name).length;
+const countOf = (name) => jasaList.value.filter((j) => j.category === name).length;
 
 const results = computed(() => {
   const { province, city, district } = props.area;
   const q = props.query.toLowerCase().trim();
-  return jasaList.filter(
+  return jasaList.value.filter(
     (j) =>
       (!province || norm(j.province) === norm(province)) &&
       (!city || norm(j.city) === norm(city)) &&

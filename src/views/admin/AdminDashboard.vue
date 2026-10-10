@@ -1,54 +1,73 @@
 <script setup>
-import { computed } from "vue";
-import { db } from "@/data/adminData";
+import { computed, onMounted, ref } from "vue";
+import { admin } from "@/services/api";
 import { useAuth } from "@/composables/useAuth";
 
 const { user } = useAuth();
-const rupiah = (n) => "Rp " + n.toLocaleString("id-ID");
-const count = (list, status) => list.filter((x) => x.status === status).length;
+const rupiah = (n) => "Rp " + Number(n).toLocaleString("id-ID");
 
-// Dummy: tren untuk sparkline dan grafik
+// Data dari backend (GET /api/admin/dashboard)
+const d = ref(null);
+const error = ref("");
+
+onMounted(async () => {
+  try {
+    d.value = await admin.dashboard();
+  } catch (e) {
+    error.value = e.message;
+  }
+});
+
+// Tren untuk sparkline dan grafik
 const spark = (arr) => {
   const max = Math.max(...arr), min = Math.min(...arr);
   return arr.map((v, i) => `${(i / (arr.length - 1)) * 80},${26 - ((v - min) / (max - min || 1)) * 22}`).join(" ");
 };
 
-const stats = computed(() => [
-  { label: "UMKM aktif", value: count(db.umkm, "aktif"), delta: "+12,5%", tone: "blue", icon: "M3 9l1-5h16l1 5M4 9v11h16V9M9 20v-6h6v6", trend: [3, 4, 4, 6, 5, 7, 8] },
-  { label: "Produk tampil", value: count(db.produk, "tampil"), delta: "+8,2%", tone: "green", icon: "M21 8l-9-5-9 5v8l9 5 9-5zM3 8l9 5 9-5", trend: [2, 3, 3, 4, 6, 5, 7] },
-  { label: "Total pesanan", value: db.pesanan.length, delta: "+10,3%", tone: "violet", icon: "M6 6h15l-2 9H8zM6 6L5 3H2", trend: [4, 3, 5, 5, 7, 6, 9] },
-  { label: "Customer", value: db.pengguna.filter((p) => p.peran === "Customer").length, delta: "+5,6%", tone: "rose", icon: "M16 20v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2M10 10a4 4 0 100-8 4 4 0 000 8", trend: [1, 2, 2, 3, 3, 4, 4] },
-]);
+const meta = [
+  { label: "UMKM aktif", tone: "blue", icon: "M3 9l1-5h16l1 5M4 9v11h16V9M9 20v-6h6v6" },
+  { label: "Produk tampil", tone: "green", icon: "M21 8l-9-5-9 5v8l9 5 9-5zM3 8l9 5 9-5" },
+  { label: "Total pesanan", tone: "violet", icon: "M6 6h15l-2 9H8zM6 6L5 3H2" },
+  { label: "Customer", tone: "rose", icon: "M16 20v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2M10 10a4 4 0 100-8 4 4 0 000 8" },
+];
 
-const days = ["Sen", "Sel", "Rab", "Kam", "Jum", "Sab", "Min"];
-const orders = [12, 18, 9, 22, 27, 31, 24];
+const stats = computed(() =>
+  meta.map((m, i) => {
+    const s = d.value?.stats?.[i];
+    return { ...m, value: s?.value ?? 0, delta: s?.delta ?? "0%", trend: s?.trend ?? [0, 0, 0, 0, 0, 0, 0] };
+  }),
+);
+
+const days = computed(() => d.value?.hari ?? ["", "", "", "", "", "", ""]);
+const orders = computed(() => d.value?.pesanan7hari ?? [0, 0, 0, 0, 0, 0, 0]);
 const W = 560, H = 190;
 const pts = computed(() => {
-  const max = Math.max(...orders) * 1.15;
-  return orders.map((v, i) => [(i / (orders.length - 1)) * W, H - (v / max) * H]);
+  const max = Math.max(...orders.value, 1) * 1.15;
+  return orders.value.map((v, i) => [(i / (orders.value.length - 1)) * W, H - (v / max) * H]);
 });
 const line = computed(() => pts.value.map((p) => p.join(",")).join(" "));
 const area = computed(() => `0,${H} ${line.value} ${W},${H}`);
 
 const colors = ["#0865d8", "#4f9bff", "#22b07d", "#f5a524", "#8f7bf0"];
-const cats = computed(() => {
-  const map = {};
-  db.umkm.forEach((u) => (map[u.kategori] = (map[u.kategori] || 0) + 1));
-  return Object.entries(map).sort((a, b) => b[1] - a[1]).map(([name, n], i) => ({ name, n, color: colors[i % colors.length], pct: Math.round((n / db.umkm.length) * 100) }));
-});
+const totalUmkm = computed(() => d.value?.totalUmkm ?? 0);
+const cats = computed(() =>
+  (d.value?.kategori ?? []).map((c, i) => ({ name: c.name, n: c.n, pct: c.pct, color: colors[i % colors.length] })),
+);
 const donut = computed(() => {
+  if (!cats.value.length || !totalUmkm.value) return "conic-gradient(#e2ecf8 0 100%)";
   let acc = 0;
-  return "conic-gradient(" + cats.value.map((c) => { const from = acc; acc += c.pct; return `${c.color} ${from}% ${acc}%`; }).join(",") + ")";
+  return "conic-gradient(" + cats.value.map((c) => {
+    const from = acc;
+    acc += (c.n / totalUmkm.value) * 100;
+    return `${c.color} ${from}% ${acc}%`;
+  }).join(",") + ")";
 });
 
-const queue = computed(() => db.umkm.filter((u) => u.status === "menunggu"));
-const newReports = computed(() => count(db.laporan, "baru"));
-const top = [["Kopi Arjuna", 64], ["Sambal Mama Dewi", 51], ["Kerajinan Bambu Lestari", 38], ["Keripik Tempe Bu Sari", 27]];
-const feed = computed(() => [
-  { t: "UMKM baru mendaftar", d: queue.value[0]?.nama || "Tidak ada", ago: "2 jam lalu", tone: "amber" },
-  { t: "Laporan customer baru", d: db.laporan[0].target, ago: "5 jam lalu", tone: "rose" },
-  { t: "Pesanan baru masuk", d: db.pesanan[0].id + " · " + db.pesanan[0].umkm, ago: "kemarin", tone: "blue" },
-]);
+const menunggu = computed(() => d.value?.menunggu ?? 0);
+const newReports = computed(() => d.value?.laporanBaru ?? 0);
+const terbaru = computed(() => d.value?.pesananTerbaru ?? []);
+const top = computed(() => (d.value?.teratas ?? []).map((t) => [t.name, t.n]));
+const feed = computed(() => d.value?.feed ?? []);
 const actions = [
   { l: "Verifikasi UMKM", s: "verifikasi", tone: "amber" },
   { l: "Kelola produk", s: "produk", tone: "green" },
@@ -60,11 +79,12 @@ const actions = [
 <template>
   <div class="page">
     <div class="left">
+      <p v-if="error" class="err" role="alert">{{ error }}</p>
       <section class="hero">
         <div>
           <h2>Halo, {{ user?.name }}</h2>
           <p>
-            Ada <b>{{ queue.length }} UMKM</b> menunggu verifikasi dan
+            Ada <b>{{ menunggu }} UMKM</b> menunggu verifikasi dan
             <b>{{ newReports }} laporan</b> baru dari customer hari ini.
           </p>
           <RouterLink class="cta" :to="{ name: 'admin-section', params: { section: 'verifikasi' } }">Periksa verifikasi</RouterLink>
@@ -99,7 +119,7 @@ const actions = [
 
         <section class="card cat">
           <div class="head"><h3>UMKM per kategori</h3></div>
-          <div class="donut" :style="{ background: donut }"><span><b>{{ db.umkm.length }}</b><small>UMKM</small></span></div>
+          <div class="donut" :style="{ background: donut }"><span><b>{{ totalUmkm }}</b><small>UMKM</small></span></div>
           <ul>
             <li v-for="c in cats" :key="c.name"><i :style="{ background: c.color }"></i>{{ c.name }}<b>{{ c.pct }}%</b></li>
           </ul>
@@ -112,7 +132,7 @@ const actions = [
           <table>
             <thead><tr><th>No.</th><th>Customer</th><th>UMKM</th><th>Total</th><th>Status</th></tr></thead>
             <tbody>
-              <tr v-for="o in db.pesanan" :key="o.id"><td>{{ o.id }}</td><td>{{ o.pelanggan }}</td><td>{{ o.umkm }}</td><td>{{ rupiah(o.total) }}</td><td><span class="badge" :class="o.status">{{ o.status }}</span></td></tr>
+              <tr v-for="o in terbaru" :key="o.id"><td>{{ o.id }}</td><td>{{ o.pelanggan }}</td><td>{{ o.umkm }}</td><td>{{ rupiah(o.total) }}</td><td><span class="badge" :class="o.status">{{ o.status }}</span></td></tr>
             </tbody>
           </table>
         </div>
@@ -152,6 +172,7 @@ const actions = [
 .head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
 .head h3 { font-size: 1rem; font-weight: 600; }
 .head a { font-size: 0.85rem; color: var(--blue); }
+.err { padding: 12px 16px; color: #b3261e; background: #fdecea; border-radius: 12px; }
 .pill { padding: 4px 12px; font-size: 0.8rem; color: var(--muted); border: 1px solid var(--line); border-radius: 999px; }
 
 .hero { position: relative; overflow: hidden; display: flex; justify-content: space-between; gap: 20px; padding: 28px 32px; color: var(--white); border-radius: 18px; background: linear-gradient(120deg, var(--blue-dark), var(--blue) 60%, #3b8cf0); }

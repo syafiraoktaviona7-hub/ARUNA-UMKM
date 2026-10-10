@@ -1,6 +1,6 @@
 <script setup>
 import { ref, computed, onMounted, onUnmounted } from "vue";
-import { articles } from "@/data/articles";
+import { useKatalog } from "@/composables/useKatalog";
 
 const props = defineProps({
   currentId: { type: Number, default: 0 },
@@ -27,6 +27,9 @@ const slides = [
   },
 ];
 
+const { articles, loadArtikel } = useKatalog();
+loadArtikel();
+
 const index = ref(0);
 const go = (i) => {
   index.value = (i + slides.length) % slides.length;
@@ -40,7 +43,7 @@ onMounted(() => {
 onUnmounted(() => clearInterval(timer));
 
 const latest = computed(() =>
-  articles.filter((a) => a.id !== props.currentId).slice(0, 5),
+  articles.value.filter((a) => a.id !== props.currentId).slice(0, 5),
 );
 </script>
 

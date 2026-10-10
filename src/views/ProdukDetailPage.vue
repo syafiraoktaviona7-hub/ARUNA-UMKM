@@ -1,14 +1,16 @@
 <script setup>
 import { ref, computed, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
-import { produkList } from "@/data/produk";
-import { umkmList } from "@/data/umkm";
+import { useKatalog } from "@/composables/useKatalog";
 import AddToCartButton from "@/components/AddToCartButton.vue";
 import ProdukCard from "@/components/ProdukCard.vue";
 import { useAuth } from "@/composables/useAuth";
 import LoginRequiredModal from "@/components/LoginRequiredModal.vue";
 
 const { isLoggedIn } = useAuth();
+const { produkList, umkmList, loadProduk, loadUmkm } = useKatalog();
+loadUmkm();
+loadProduk(true); // selalu ambil stok terbaru
 const showAuthModal = ref(false);
 
 const route = useRoute();
@@ -18,11 +20,11 @@ const tab = ref("deskripsi");
 const qty = ref(1);
 
 const item = computed(() =>
-  produkList.find((p) => String(p.id) === String(route.params.id)),
+  produkList.value.find((p) => String(p.id) === String(route.params.id)),
 );
 
 const umkm = computed(() =>
-  item.value ? umkmList.find((u) => u.id === item.value.umkmId) : null,
+  item.value ? umkmList.value.find((u) => u.id === item.value.umkmId) : null,
 );
 
 const stok = computed(() => item.value?.stok ?? 0);
@@ -111,7 +113,7 @@ function checkout() {
 
 const related = computed(() => {
   if (!item.value) return [];
-  const others = produkList.filter((p) => p.id !== item.value.id);
+  const others = produkList.value.filter((p) => p.id !== item.value.id);
   const sameShop = others.filter((p) => p.umkmId === item.value.umkmId);
   const sameCat = others.filter(
     (p) => p.category === item.value.category && p.umkmId !== item.value.umkmId,

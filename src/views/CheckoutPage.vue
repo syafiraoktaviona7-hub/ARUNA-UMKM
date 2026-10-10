@@ -3,10 +3,14 @@ import { computed, ref } from "vue";
 import { useRouter } from "vue-router";
 import { useAuth } from "@/composables/useAuth";
 import { useCart } from "@/composables/useCart";
+import { useKatalog } from "@/composables/useKatalog";
+import { customer as customerApi } from "@/services/api";
 
 const router = useRouter();
 const { user } = useAuth();
 const cart = useCart();
+const { loadProduk } = useKatalog();
+const submitting = ref(false);
 
 const CHECKOUT_KEY = "aruna_checkout";
 
@@ -149,7 +153,9 @@ function backToCart() {
   router.push("/");
 }
 
-function submitOrder() {
+async function submitOrder() {
+  if (submitting.value) return;
+
   if (!form.value.nama.trim()) {
     alert("Silakan isi nama lengkap.");
     return;
@@ -195,42 +201,50 @@ function submitOrder() {
     return;
   }
 
-  const orderData = {
-    shop: shop.value,
-    items: items.value,
-    customer: {
-      nama: form.value.nama,
-      nomorHp: form.value.nomorHp,
-      email: form.value.email,
-    },
-    address: {
-      provinsi: form.value.provinsi,
-      kota: form.value.kota,
-      kecamatan: form.value.kecamatan,
-      kelurahan: form.value.kelurahan,
-      kodePos: form.value.kodePos,
-      alamatLengkap: form.value.alamatLengkap,
-    },
-    shipping: selectedShipping.value,
-    payment: form.value.pembayaran,
-    catatan: form.value.catatan,
-    subtotal: subtotal.value,
-    shippingCost: shippingCost.value,
-    total: totalPayment.value,
-  };
+  submitting.value = true;
 
- console.log("DATA PESANAN:", orderData);
+  try {
+    const alamat = [
+      form.value.alamatLengkap.trim(),
+      `Kel. ${form.value.kelurahan}`,
+      `Kec. ${form.value.kecamatan}`,
+      form.value.kota,
+      form.value.provinsi,
+      form.value.kodePos,
+    ].join(", ");
 
+    const res = await customerApi.buatPesanan({
+      items: items.value.map((item) => ({ id: item.id, qty: item.qty })),
+      nama_penerima: form.value.nama.trim(),
+      no_hp_penerima: form.value.nomorHp.trim(),
+      alamat_kirim: alamat,
+      catatan: form.value.catatan,
+      metode_bayar: form.value.pembayaran,
+      pengiriman: form.value.pengiriman,
+    });
 
-items.value.forEach((item) => {
-  cart.remove(item.key);
-});
+    const order = res.orders[0];
 
-alert("Pesanan berhasil dibuat!");
+    items.value.forEach((item) => {
+      cart.remove(item.key);
+    });
+    localStorage.removeItem(CHECKOUT_KEY);
+    loadProduk(true); // muat ulang katalog supaya stok terbaru tampil
 
-localStorage.removeItem("aruna_checkout");
+    let pesan = `Pesanan ${order.kode} berhasil dibuat!\nTotal pembayaran ${rupiah(order.total)}.`;
+    if (form.value.pembayaran === "transfer" && order.umkm.no_rekening) {
+      pesan += `\n\nTransfer ke ${order.umkm.bank} ${order.umkm.no_rekening} a.n. ${order.umkm.nama_rekening}.`;
+    } else if (order.umkm.whatsapp) {
+      pesan += `\n\nHubungi penjual lewat WhatsApp: ${order.umkm.whatsapp}`;
+    }
+    alert(pesan);
 
-router.push("/");
+    router.push("/");
+  } catch (error) {
+    alert(error.status === 403 ? "Hanya akun customer yang bisa membuat pesanan." : error.message);
+  } finally {
+    submitting.value = false;
+  }
 }
 </script>
 
@@ -840,6 +854,7 @@ router.push("/");
             <button
               type="button"
               class="order-button"
+              :disabled="submitting"
               @click="submitOrder"
             >
               <span>♙</span>

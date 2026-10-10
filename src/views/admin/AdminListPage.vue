@@ -1,13 +1,46 @@
 <script setup>
-import { ref, computed, watch } from "vue";
+import { ref, computed, watch, onBeforeUnmount } from "vue";
 import { useRoute } from "vue-router";
-import { db, sections } from "@/data/adminData";
+import { sections } from "@/data/adminData";
+import { admin } from "@/services/api";
+import { useAdminCounts } from "@/composables/useAdminCounts";
 
 const route = useRoute();
+const { refresh: refreshCounts } = useAdminCounts();
+
 const search = ref(String(route.query.q || ""));
 const status = ref("");
+const rows = ref([]);
+const loading = ref(true);
+const error = ref("");
+const busy = ref("");
 
 const cfg = computed(() => sections[route.params.section]);
+
+let timer;
+let seq = 0;
+
+// Ambil data dari server (filter status dan pencarian dikerjakan backend)
+async function load() {
+  if (!cfg.value) return;
+  const my = ++seq;
+  loading.value = true;
+  error.value = "";
+  try {
+    const data = await admin.daftar(route.params.section, {
+      status: status.value,
+      q: search.value.trim(),
+    });
+    if (my === seq) rows.value = data;
+  } catch (e) {
+    if (my === seq) {
+      rows.value = [];
+      error.value = e.message;
+    }
+  } finally {
+    if (my === seq) loading.value = false;
+  }
+}
 
 // Ganti halaman atau datang dari pencarian di topbar (?q=...)
 watch(() => [route.params.section, route.query.q], ([, q]) => {
@@ -15,19 +48,31 @@ watch(() => [route.params.section, route.query.q], ([, q]) => {
   status.value = "";
 });
 
-const rows = computed(() => {
-  const c = cfg.value;
-  const q = search.value.trim().toLowerCase();
-  return db[c.data].filter((r) => {
-    if (c.fixed && r.status !== c.fixed) return false;
-    if (status.value && r.status !== status.value) return false;
-    return !q || Object.values(r).some((v) => String(v).toLowerCase().includes(q));
-  });
+watch([() => route.params.section, status, search], () => {
+  clearTimeout(timer);
+  timer = setTimeout(load, 250);
 });
 
-const rupiah = (n) => "Rp " + n.toLocaleString("id-ID");
+load();
+onBeforeUnmount(() => clearTimeout(timer));
+
+const rupiah = (n) => "Rp " + Number(n).toLocaleString("id-ID");
 const cell = (r, key) => (cfg.value.money?.includes(key) ? rupiah(r[key]) : r[key]);
 const canAct = (a, r) => !a.when || a.when.includes(r.status);
+
+async function act(a, r) {
+  if (busy.value) return;
+  busy.value = `${r.id}:${a.label}`;
+  error.value = "";
+  try {
+    await admin.ubahStatus(route.params.section, r.id, a.set);
+    await Promise.all([load(), refreshCounts()]);
+  } catch (e) {
+    error.value = e.message;
+  } finally {
+    busy.value = "";
+  }
+}
 </script>
 
 <template>
@@ -35,12 +80,14 @@ const canAct = (a, r) => !a.when || a.when.includes(r.status);
     <p class="desc">{{ cfg.desc }}</p>
 
     <div class="tools">
-      <input v-model="search" type="search" placeholder="Cari nama, kota, atau kata kunci" aria-label="Cari" />
+      <input v-model="search" type="search" placeholder="Cari nama atau kata kunci" aria-label="Cari" />
       <select v-if="cfg.statuses.length" v-model="status" aria-label="Filter status">
         <option value="">Semua status</option>
         <option v-for="s in cfg.statuses" :key="s" :value="s">{{ s }}</option>
       </select>
     </div>
+
+    <p v-if="error" class="err" role="alert">{{ error }}</p>
 
     <div class="table-wrap">
       <table v-if="rows.length">
@@ -60,7 +107,8 @@ const canAct = (a, r) => !a.when || a.when.includes(r.status);
                 v-for="a in cfg.actions.filter((x) => canAct(x, r))"
                 :key="a.label"
                 :class="a.tone"
-                @click="r.status = a.set"
+                :disabled="!!busy"
+                @click="act(a, r)"
               >
                 {{ a.label }}
               </button>
@@ -68,6 +116,7 @@ const canAct = (a, r) => !a.when || a.when.includes(r.status);
           </tr>
         </tbody>
       </table>
+      <p v-else-if="loading" class="empty">Memuat data...</p>
       <p v-else class="empty">Tidak ada data yang cocok. Ubah kata kunci atau filter status.</p>
     </div>
   </div>
@@ -102,5 +151,7 @@ tbody tr + tr td { border-top: 1px solid var(--line); }
   .tools select { flex: 1; }
   th, td { padding: 11px 12px; }
 }
+.err { margin-bottom: 14px; padding: 10px 14px; font-size: 0.9rem; color: #b3261e; background: #fdecea; border-radius: 8px; }
+.acts button:disabled { opacity: 0.6; cursor: wait; }
 .empty { padding: 40px 16px; text-align: center; color: var(--muted); }
 </style>

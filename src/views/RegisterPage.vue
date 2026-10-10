@@ -227,7 +227,7 @@ function keLogin() {
   router.push("/login");
 }
 
-function submitRegister() {
+async function submitRegister() {
   let emptyFields = [];
 
   if (!provinceId.value) {
@@ -271,13 +271,29 @@ if (!form.value.fotoSelfie) {
   return;
 }
 
+const namaDari = (daftar, id) => daftar.value.find((x) => x.id === id)?.name || "";
+
 try {
-  registerUser({
+  await registerUser({
     name: form.value.namaLengkap,
     email: form.value.email,
     password: form.value.password,
     role: "penjual",
     namaToko: form.value.namaToko,
+    nomorHp: form.value.nomorHp,
+
+    tempatLahir: form.value.tempatLahir,
+    tanggalLahir: form.value.tanggalLahir,
+    jenisKelamin: form.value.jenisKelamin,
+    pendidikanTerakhir: form.value.pendidikanTerakhir,
+    tentangDiri: form.value.tentangDiri,
+
+    provinsi: namaDari(provinces, provinceId.value),
+    kota: namaDari(cities, cityId.value),
+    kecamatan: namaDari(districts, districtId.value),
+    kelurahan: namaDari(villages, villageId.value),
+    kodePos: form.value.kodePos,
+    alamat: form.value.alamatLengkap,
   });
 
   alert("Pendaftaran berhasil! Silakan login menggunakan akun yang baru dibuat.");
@@ -299,7 +315,7 @@ function handlePhoneInput(event) {
 
   event.target.value = value.replace(/[^0-9]/g, "");
 
-  form.phone = event.target.value;
+  form.value.nomorHp = event.target.value;
 }
 
 function closePhoneError() {

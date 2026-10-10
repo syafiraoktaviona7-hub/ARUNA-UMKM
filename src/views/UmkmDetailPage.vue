@@ -1,18 +1,20 @@
 <script setup>
 import { ref, computed, watch } from "vue";
 import { useRoute } from "vue-router";
-import { umkmList } from "@/data/umkm";
-import { produkList } from "@/data/produk";
+import { useKatalog } from "@/composables/useKatalog";
 import ProdukCard from "@/components/ProdukCard.vue";
 
 const route = useRoute();
+const { produkList, umkmList, loadProduk, loadUmkm } = useKatalog();
+loadUmkm();
+loadProduk(true);
 const failed = ref(false);
 const tab = ref("produk");
 const q = ref("");
 const sort = ref("terlaris");
 
 const umkm = computed(() =>
-  umkmList.find((u) => String(u.id) === String(route.params.id)),
+  umkmList.value.find((u) => String(u.id) === String(route.params.id)),
 );
 
 watch(
@@ -26,7 +28,7 @@ watch(
 );
 
 const semuaProduk = computed(() =>
-  umkm.value ? produkList.filter((p) => p.umkmId === umkm.value.id) : [],
+  umkm.value ? produkList.value.filter((p) => p.umkmId === umkm.value.id) : [],
 );
 
 const totalTerjual = computed(() =>

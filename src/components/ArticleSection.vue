@@ -1,18 +1,21 @@
 <script setup>
 import { computed } from "vue";
-import { articles } from "@/data/articles";
+import { useKatalog } from "@/composables/useKatalog";
 
 const props = defineProps({
   province: { type: String, default: "" },
 });
 
-const national = articles.filter((a) => !a.province);
+const { articles, loadArtikel } = useKatalog();
+loadArtikel();
+
+const national = computed(() => articles.value.filter((a) => !a.province));
 
 const local = computed(() =>
-  props.province ? articles.filter((a) => a.province === props.province) : [],
+  props.province ? articles.value.filter((a) => a.province === props.province) : [],
 );
 
-const shown = computed(() => [...local.value, ...national].slice(0, 3));
+const shown = computed(() => [...local.value, ...national.value].slice(0, 3));
 
 const heading = computed(() =>
   props.province

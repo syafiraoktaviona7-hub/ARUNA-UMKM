@@ -1,14 +1,19 @@
-// Data wilayah Indonesia (provinsi, kota/kabupaten, kecamatan) dari API publik.
-// Untuk produksi, sebaiknya proxy lewat backend sendiri agar tidak bergantung pihak ketiga.
+// services/wilayah.js
 const BASE = "https://www.emsifa.com/api-wilayah-indonesia/api";
 const cache = new Map();
 
 async function get(path) {
     if (cache.has(path)) return cache.get(path);
+
     const res = await fetch(`${BASE}/${path}.json`);
-    if (!res.ok) throw new Error("Data wilayah gagal dimuat. Coba lagi.");
+
+    if (!res.ok) {
+        throw new Error("Data wilayah gagal dimuat. Coba lagi.");
+    }
+
     const data = await res.json();
     cache.set(path, data);
+
     return data;
 }
 
@@ -17,6 +22,5 @@ export const getCities = (provinceId) => get(`regencies/${provinceId}`);
 export const getDistricts = (cityId) => get(`districts/${cityId}`);
 export const getVillages = (districtId) => get(`villages/${districtId}`);
 
-// API mengembalikan HURUF BESAR: "KOTA SURABAYA" -> "Kota Surabaya"
 export const titleCase = (s = "") =>
     s.toLowerCase().replace(/(^|\s)\S/g, (c) => c.toUpperCase());

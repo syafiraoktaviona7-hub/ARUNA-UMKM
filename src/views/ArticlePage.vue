@@ -1,12 +1,23 @@
 <script setup>
-import { computed } from "vue";
+import { ref, watch } from "vue";
 import { useRoute } from "vue-router";
-import { articles } from "@/data/articles";
+import { katalog } from "@/services/api";
 import ArticleSidebar from "@/components/ArticleSidebar.vue";
 
 const route = useRoute();
-const article = computed(() =>
-  articles.find((a) => String(a.id) === route.params.id),
+const article = ref(null);
+
+watch(
+  () => route.params.id,
+  async (id) => {
+    if (!id) return;
+    try {
+      article.value = await katalog.artikelDetail(id);
+    } catch {
+      article.value = null;
+    }
+  },
+  { immediate: true },
 );
 </script>
 

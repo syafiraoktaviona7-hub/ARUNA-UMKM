@@ -1,0 +1,20 @@
+Edit app/Config/Filters.php (bawaan CodeIgniter), tiga tempat saja:
+
+1) Di bagian atas, setelah baris "use" yang sudah ada, tambahkan:
+
+use App\Filters\ApiAuth;
+use App\Filters\Cors;
+
+2) Di dalam array  public array $aliases = [ ... ];  tambahkan dua baris:
+
+        'cors' => Cors::class,
+        'auth' => ApiAuth::class,
+
+3) Di dalam  public array $globals = [ 'before' => [ ... ], ... ];  tambahkan 'cors':
+
+        'before' => [
+            'cors',
+            // 'honeypot',
+            // 'csrf',
+            // 'invalidchars',
+        ],

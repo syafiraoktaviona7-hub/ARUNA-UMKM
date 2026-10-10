@@ -1,11 +1,13 @@
 <script setup>
 import { ref, computed, watch } from "vue";
 import { useRoute } from "vue-router";
-import { produkList } from "@/data/produk";
+import { useKatalog } from "@/composables/useKatalog";
 import { useWilayahFilter } from "@/composables/useWilayahFilter";
 import ProdukCard from "@/components/ProdukCard.vue";
 
 const route = useRoute();
+const { produkList, loadProduk } = useKatalog();
+loadProduk();
 
 const {
   provinces,
@@ -68,7 +70,7 @@ const results = computed(() => {
   const max = toNum(maxPrice.value);
   const s = q.value.toLowerCase().trim();
 
-  const list = produkList.filter(
+  const list = produkList.value.filter(
     (p) =>
       (!province || norm(p.province) === norm(province)) &&
       (!city || norm(p.city) === norm(city)) &&

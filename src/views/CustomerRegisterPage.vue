@@ -174,9 +174,11 @@ function ubahAlamat() {
   currentStep.value = 2;
 }
 
-function daftarSekarang() {
+async function daftarSekarang() {
+  const namaDari = (daftar, id) => daftar.value.find((x) => x.id === id)?.name || "";
+
   try {
-   registerUser({
+   await registerUser({
   name: form.value.nama,
   email: form.value.email,
   password: form.value.password,
@@ -186,10 +188,10 @@ function daftarSekarang() {
   tanggalLahir: form.value.tanggalLahir,
   jenisKelamin: form.value.jenisKelamin,
 
-  provinsi: form.value.provinsi,
-  kota: form.value.kota,
-  kecamatan: form.value.kecamatan,
-  kelurahan: form.value.kelurahan,
+  provinsi: namaDari(provinces, provinceId.value),
+  kota: namaDari(cities, cityId.value),
+  kecamatan: namaDari(districts, districtId.value),
+  kelurahan: namaDari(villages, villageId.value),
   kodePos: form.value.kodePos,
   alamatLengkap: form.value.alamatLengkap,
 });
@@ -727,6 +729,43 @@ function closePhoneError() {
   </option>
 </select>
     </div>
+      <!-- KODE POS -->
+  <div class="address-form-group">
+    <label for="kodePos">Kode Pos</label>
+
+    <div class="select-wrapper">
+      <span class="address-icon">
+        <svg viewBox="0 0 24 24" fill="none">
+          <rect
+            x="3"
+            y="5"
+            width="18"
+            height="14"
+            rx="2"
+            stroke="currentColor"
+            stroke-width="1.8"
+          />
+          <path
+            d="M7 9h4M7 13h10M7 16h6"
+            stroke="currentColor"
+            stroke-width="1.8"
+            stroke-linecap="round"
+          />
+        </svg>
+      </span>
+
+      <input
+        id="kodePos"
+        v-model="form.kodePos"
+        type="text"
+        inputmode="numeric"
+        maxlength="5"
+        placeholder="Masukkan 5 digit kode pos"
+        autocomplete="postal-code"
+        @input="form.kodePos = form.kodePos.replace(/\D/g, '').slice(0, 5)"
+      />
+    </div>
+  </div>
   </div>
 
   <!-- ALAMAT LENGKAP -->
@@ -1118,6 +1157,33 @@ function closePhoneError() {
   font-family: "Poppins", sans-serif;
   color: #0d2752;
   overflow: hidden;
+}
+
+.select-wrapper input {
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  padding: 0 42px 0 5px;
+
+  border: none;
+  outline: none;
+  background: transparent;
+
+  font-family: inherit;
+  font-size: 14px;
+  color: #243d63;
+}
+
+.address-form-group:has(#kodePos) {
+  margin-top: 8px;
+}
+
+.select-wrapper input::placeholder {
+  color: #9aabc0;
+}
+
+.select-wrapper:has(input)::after {
+  display: none;
 }
 
 /* =========================

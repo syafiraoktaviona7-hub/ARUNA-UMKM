@@ -224,26 +224,144 @@ h3 {
 }
 
 .actions {
+  position: relative;
+  z-index: 3;
   display: flex;
-  gap: 8px;
+  align-items: center;
+  gap: 6px;
   flex-shrink: 0;
 }
+
+/* PAKSA tombol keranjang sama ukuran dengan WA */
+.actions :deep(button) {
+  width: 44px !important;
+  height: 44px !important;
+  min-width: 44px !important;
+  min-height: 44px !important;
+
+  padding: 0 !important;
+  margin: 0 !important;
+
+  display: flex !important;
+  align-items: center;
+  justify-content: center;
+
+  border-radius: 10px !important;
+  box-sizing: border-box;
+}
+
+/* WhatsApp */
 .wa {
-  width: 38px;
-  height: 38px;
+  width: 44px;
+  height: 44px;
+  min-width: 44px;
+  min-height: 44px;
+
   flex-shrink: 0;
-  display: grid;
-  place-items: center;
-  border-radius: 50%;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  padding: 0;
+  margin: 0;
+  box-sizing: border-box;
+
+  border-radius: 10px;
   background: #25d366;
   color: #fff;
+
   transition: background 0.2s;
 }
+
 .wa:hover {
   background: #1faa52;
 }
+
 .wa svg {
   width: 20px;
   height: 20px;
+}
+
+@media (max-width: 650px) {
+  .actions {
+    gap: 4px;
+  }
+
+  .actions :deep(button) {
+    width: 32px !important;
+    height: 32px !important;
+    min-width: 32px !important;
+    min-height: 32px !important;
+    border-radius: 8px !important;
+  }
+
+  .wa {
+    width: 32px;
+    height: 32px;
+    min-width: 32px;
+    min-height: 32px;
+    border-radius: 8px;
+  }
+
+  .wa svg {
+    width: 16px;
+    height: 16px;
+  }
+
+  .grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+  }
+
+  .media {
+    aspect-ratio: 1 / 1;
+  }
+
+  .body {
+    padding: 10px;
+    gap: 4px;
+  }
+
+  h3 {
+    font-size: 12px;
+    line-height: 1.3;
+    min-height: 31px;
+  }
+
+  .shop {
+    font-size: 10px;
+  }
+
+  .loc {
+    font-size: 9px;
+  }
+
+  .price {
+    font-size: 13px;
+  }
+
+  .meta {
+    font-size: 9px;
+  }
+
+  .badge {
+    font-size: 8px;
+    padding: 2px 5px;
+  }
+
+  .actions {
+    gap: 4px;
+  }
+
+  .wa {
+    width: 30px;
+    height: 30px;
+  }
+
+  .wa svg {
+    width: 16px;
+    height: 16px;
+  }
 }
 </style>

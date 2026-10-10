@@ -1,18 +1,29 @@
 <script setup>
-import { computed, ref, watch } from "vue";
+import { computed, onMounted, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { useAuth } from "@/composables/useAuth";
-import { db, sections } from "@/data/adminData";
+import { useAdminCounts } from "@/composables/useAdminCounts";
+import { admin } from "@/services/api";
+import { sections } from "@/data/adminData";
 
 const route = useRoute();
 const router = useRouter();
 const { user, logout } = useAuth();
+const { counts: count, refresh: refreshCounts } = useAdminCounts();
 const keyword = ref("");
 const showResults = ref(false);
+const searching = ref(false);
 const open = ref(false);
 
 // Tutup menu geser setiap pindah halaman
 watch(() => route.fullPath, () => (open.value = false));
+
+// Sesi berakhir (token kedaluwarsa atau akun diblokir): kembali ke login admin
+watch(user, (u) => {
+  if (!u) router.replace({ name: "admin-login" });
+});
+
+onMounted(refreshCounts);
 
 const icons = {
   ringkasan: "M3 12l9-9 9 9M5 10v10h14V10",
@@ -27,11 +38,6 @@ const icons = {
   logout: "M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9",
 };
 
-const count = computed(() => ({
-  verifikasi: db.umkm.filter((u) => u.status === "menunggu").length,
-  laporan: db.laporan.filter((l) => l.status === "baru").length,
-}));
-
 const menu = [
   { key: "ringkasan", label: "Ringkasan", to: { name: "admin-dashboard" } },
   ...Object.entries(sections).map(([key, s]) => ({
@@ -43,23 +49,48 @@ const title = computed(() =>
   route.params.section ? sections[route.params.section].title : "Ringkasan",
 );
 
-// Pencarian lintas UMKM, produk, dan pengguna
+// Pencarian lintas UMKM, produk, dan pengguna (dikerjakan backend)
 const searchSpec = [
-  { section: "umkm", label: "UMKM", data: "umkm", sub: (r) => `${r.pemilik} · ${r.kota}` },
-  { section: "produk", label: "Produk", data: "produk", sub: (r) => r.umkm },
-  { section: "pengguna", label: "Pengguna", data: "pengguna", sub: (r) => r.email },
+  { section: "umkm", label: "UMKM", sub: (r) => `${r.pemilik} · ${r.kota}` },
+  { section: "produk", label: "Produk", sub: (r) => r.umkm },
+  { section: "pengguna", label: "Pengguna", sub: (r) => r.email },
 ];
 
-const groups = computed(() => {
-  const q = keyword.value.trim().toLowerCase();
-  if (!q) return [];
-  return searchSpec
-    .map((g) => {
-      const all = db[g.data].filter((r) => Object.values(r).some((v) => String(v).toLowerCase().includes(q)));
-      return { ...g, total: all.length, items: all.slice(0, 3).map((r) => ({ id: r.id, name: r.nama, sub: g.sub(r) })) };
-    })
-    .filter((g) => g.total);
+const groups = ref([]);
+let timer;
+let seq = 0;
+
+watch(keyword, (v) => {
+  clearTimeout(timer);
+  seq++;
+  const q = v.trim();
+  if (!q) {
+    groups.value = [];
+    searching.value = false;
+    return;
+  }
+  searching.value = true;
+  timer = setTimeout(() => cari(q), 250);
 });
+
+async function cari(q) {
+  const my = seq;
+  try {
+    const hasil = await Promise.all(searchSpec.map((g) => admin.daftar(g.section, { q })));
+    if (my !== seq) return;
+    groups.value = searchSpec
+      .map((g, i) => ({
+        ...g,
+        total: hasil[i].length,
+        items: hasil[i].slice(0, 3).map((r) => ({ id: r.id, name: r.nama, sub: g.sub(r) })),
+      }))
+      .filter((g) => g.total);
+  } catch {
+    if (my === seq) groups.value = [];
+  } finally {
+    if (my === seq) searching.value = false;
+  }
+}
 
 function go(section, q) {
   showResults.value = false;
@@ -126,6 +157,7 @@ function handleLogout() {
                 <button v-if="g.total > g.items.length" type="button" class="more" @mousedown.prevent="go(g.section, keyword.trim())">Lihat semua {{ g.total }} hasil {{ g.label }}</button>
               </section>
             </template>
+            <p v-else-if="searching">Mencari...</p>
             <p v-else>Tidak ada hasil untuk "{{ keyword.trim() }}"</p>
           </div>
         </div>

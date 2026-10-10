@@ -1,12 +1,15 @@
 <script setup>
 import { ref, computed } from "vue";
 import { categoryCards } from "@/data/categories";
-import { produkList } from "@/data/produk";
+import { useKatalog } from "@/composables/useKatalog";
 
 const category = defineModel("category", { type: String, default: "Semua" });
 const catSearch = ref("");
 
-const countOf = (name) => produkList.filter((p) => p.category === name).length;
+const { produkList, loadProduk } = useKatalog();
+loadProduk();
+
+const countOf = (name) => produkList.value.filter((p) => p.category === name).length;
 
 const filteredCards = computed(() =>
   categoryCards.filter((c) =>
