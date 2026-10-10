@@ -144,7 +144,10 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <header class="navbar">
+  <header
+    v-if="route.name !== 'seller-dashboard'"
+    class="navbar"
+  >
     <div class="navbar-container">
       <!-- Logo -->
       <RouterLink to="/#beranda" class="brand">
