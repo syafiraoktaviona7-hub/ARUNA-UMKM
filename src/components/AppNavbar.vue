@@ -1,3 +1,6 @@
+function isActive(l) { if (l.id === "jasa" && route.name === "service") return
+true; if (l.id === "umkm" && route.name === "products") return true; return
+route.name === "home" && active.value === l.id; }
 <script setup>
 import { ref, watch, nextTick, onMounted, onUnmounted } from "vue";
 import { useRoute } from "vue-router";
@@ -218,106 +221,106 @@ onUnmounted(() => {
             <Transition name="profile-dropdown">
               <div v-if="showUserMenu" class="profile-dropdown">
                 <RouterLink
-  to="/profil"
-  class="profile-menu-item"
-  @click="closeUserMenu"
->
-  <span class="profile-menu-icon">
-    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
-      <circle
-        cx="12"
-        cy="7.5"
-        r="3.2"
-        stroke="currentColor"
-        stroke-width="1.8"
-      />
+                  to="/profil"
+                  class="profile-menu-item"
+                  @click="closeUserMenu"
+                >
+                  <span class="profile-menu-icon">
+                    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                      <circle
+                        cx="12"
+                        cy="7.5"
+                        r="3.2"
+                        stroke="currentColor"
+                        stroke-width="1.8"
+                      />
 
-      <path
-        d="M5.5 20c.7-3.8 3-5.8 6.5-5.8s5.8 2 6.5 5.8"
-        stroke="currentColor"
-        stroke-width="1.8"
-        stroke-linecap="round"
-      />
-    </svg>
-  </span>
+                      <path
+                        d="M5.5 20c.7-3.8 3-5.8 6.5-5.8s5.8 2 6.5 5.8"
+                        stroke="currentColor"
+                        stroke-width="1.8"
+                        stroke-linecap="round"
+                      />
+                    </svg>
+                  </span>
 
-  <span>Profil Saya</span>
-</RouterLink>
+                  <span>Profil Saya</span>
+                </RouterLink>
 
-<button class="profile-menu-item" type="button">
-  <span class="profile-menu-icon">
-    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
-      <path
-        d="M6 3.5h12v17H6z"
-        stroke="currentColor"
-        stroke-width="1.8"
-        stroke-linejoin="round"
-      />
+                <button class="profile-menu-item" type="button">
+                  <span class="profile-menu-icon">
+                    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                      <path
+                        d="M6 3.5h12v17H6z"
+                        stroke="currentColor"
+                        stroke-width="1.8"
+                        stroke-linejoin="round"
+                      />
 
-      <path
-        d="M9 7h6M9 10.5h6M9 14h4"
-        stroke="currentColor"
-        stroke-width="1.8"
-        stroke-linecap="round"
-      />
-    </svg>
-  </span>
+                      <path
+                        d="M9 7h6M9 10.5h6M9 14h4"
+                        stroke="currentColor"
+                        stroke-width="1.8"
+                        stroke-linecap="round"
+                      />
+                    </svg>
+                  </span>
 
-  <span>Riwayat Pesanan</span>
-</button>
+                  <span>Riwayat Pesanan</span>
+                </button>
 
-<button class="profile-menu-item" type="button">
-  <span class="profile-menu-icon">
-    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
-      <path
-        d="M20.8 8.8c0 5.1-8.8 10-8.8 10s-8.8-4.9-8.8-10A4.6 4.6 0 0 1 12 6.1a4.6 4.6 0 0 1 8.8 2.7Z"
-        stroke="currentColor"
-        stroke-width="1.8"
-        stroke-linecap="round"
-        stroke-linejoin="round"
-      />
-    </svg>
-  </span>
+                <button class="profile-menu-item" type="button">
+                  <span class="profile-menu-icon">
+                    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                      <path
+                        d="M20.8 8.8c0 5.1-8.8 10-8.8 10s-8.8-4.9-8.8-10A4.6 4.6 0 0 1 12 6.1a4.6 4.6 0 0 1 8.8 2.7Z"
+                        stroke="currentColor"
+                        stroke-width="1.8"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                      />
+                    </svg>
+                  </span>
 
-  <span>Produk Favorit</span>
-</button>
+                  <span>Produk Favorit</span>
+                </button>
 
                 <div class="profile-divider"></div>
 
                 <button
-  class="profile-menu-item logout"
-  type="button"
-  @click="handleLogout"
->
-  <span class="profile-menu-icon">
-    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
-      <path
-        d="M10 5H5v14h5"
-        stroke="currentColor"
-        stroke-width="1.8"
-        stroke-linecap="round"
-        stroke-linejoin="round"
-      />
+                  class="profile-menu-item logout"
+                  type="button"
+                  @click="handleLogout"
+                >
+                  <span class="profile-menu-icon">
+                    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                      <path
+                        d="M10 5H5v14h5"
+                        stroke="currentColor"
+                        stroke-width="1.8"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                      />
 
-      <path
-        d="M14 8l4 4-4 4"
-        stroke="currentColor"
-        stroke-width="1.8"
-        stroke-linecap="round"
-        stroke-linejoin="round"
-      />
+                      <path
+                        d="M14 8l4 4-4 4"
+                        stroke="currentColor"
+                        stroke-width="1.8"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                      />
 
-      <path
-        d="M9 12h9"
-        stroke="currentColor"
-        stroke-width="1.8"
-        stroke-linecap="round"
-      />
-    </svg>
-  </span>
+                      <path
+                        d="M9 12h9"
+                        stroke="currentColor"
+                        stroke-width="1.8"
+                        stroke-linecap="round"
+                      />
+                    </svg>
+                  </span>
 
-  <span>Keluar</span>
-</button>
+                  <span>Keluar</span>
+                </button>
               </div>
             </Transition>
           </div>

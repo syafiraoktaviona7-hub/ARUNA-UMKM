@@ -20,11 +20,6 @@ const goSearch = () =>
     <section id="beranda" class="hero">
       <div class="hero-container">
         <div class="hero-content">
-          <div class="hero-badge">
-            <span class="badge-icon">✦</span>
-            Bersama ARUNA, UMKM Indonesia Lebih Maju
-          </div>
-
           <h1>
             Menghubungkan UMKM,
             <span>Membangun Indonesia.</span>

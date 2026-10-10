@@ -10,64 +10,95 @@ import LoginPage from "@/views/LoginPage.vue";
 import ProfilePage from "@/views/ProfilePage.vue";
 import CheckoutPage from "@/views/CheckoutPage.vue";
 import ProdukDetailPage from "@/views/ProdukDetailPage.vue";
-import { katalog } from "@/services/api";
 import UmkmDetailPage from "@/views/UmkmDetailPage.vue";
+import JasaDetailPage from "@/views/JasaDetailPage.vue";
 
+import { katalog } from "@/services/api";
+import { jasaList } from "@/data/jasa";
 import { adminRoutes, installAdminGuard } from "./adminRoutes";
 
-// true = ada. 404 dari server = tidak ada. Galat jaringan dianggap ada supaya halaman tetap terbuka.
+// true = data ada.
+// 404 = data tidak ditemukan.
+// Error jaringan dianggap ada agar halaman tetap terbuka.
 async function adaDiServer(ambil) {
     try {
         await ambil();
         return true;
-    } catch (e) {
-        return e.status !== 404;
+    } catch (error) {
+        const status = error.response ?
+            error.response.status :
+            error.status;
+
+        return status !== 404;
     }
+}
+
+// Redirect ke halaman 404
+function keNotFound(to) {
+    return {
+        name: "notfound",
+        params: {
+            pathMatch: to.path.substring(1).split("/"),
+        },
+        query: to.query,
+        hash: to.hash,
+    };
 }
 
 const router = createRouter({
     history: createWebHistory(),
 
-    routes: [{
+    routes: [
+        // HOME
+        {
             path: "/",
             name: "home",
             component: HomePage,
         },
 
+        // DAFTAR PRODUK
         {
             path: "/produk",
             name: "products",
             component: ProdukPage,
         },
 
-                {
+        // DETAIL PRODUK
+        {
             path: "/produk/:id",
             name: "produk-detail",
             component: ProdukDetailPage,
-            beforeEnter: async (to) => {
-                const exists = await adaDiServer(() => katalog.produkDetail(to.params.id));
+            beforeEnter: async(to) => {
+                const exists = await adaDiServer(() =>
+                    katalog.produkDetail(to.params.id)
+                );
 
-                if (exists) {
-                    return true;
-                }
-
-                return {
-                    name: "notfound",
-                    params: {
-                        pathMatch: to.path.substring(1).split("/"),
-                    },
-                    query: to.query,
-                    hash: to.hash,
-                };
+                return exists ? true : keNotFound(to);
             },
         },
 
-                {
+        // DETAIL JASA
+        {
+            path: "/jasa/:id",
+            name: "service",
+            component: JasaDetailPage,
+            beforeEnter: (to) => {
+                const exists = jasaList.some(
+                    (j) => String(j.id) === String(to.params.id)
+                );
+
+                return exists ? true : keNotFound(to);
+            },
+        },
+
+        // DETAIL UMKM
+        {
             path: "/umkm/:id",
             name: "umkm-detail",
             component: UmkmDetailPage,
         },
 
+        // REGISTER
         {
             path: "/register",
             name: "register",
@@ -77,27 +108,7 @@ const router = createRouter({
             },
         },
 
-        {
-            path: "/login",
-            name: "login",
-            component: LoginPage,
-            meta: {
-                bare: true,
-            },
-        },
-
-        {
-            path: "/profil",
-            name: "profile",
-            component: ProfilePage,
-        },
-
-        {
-            path: "/checkout",
-            name: "checkout",
-            component: CheckoutPage,
-        },
-
+        // REGISTER CUSTOMER
         {
             path: "/register/customer",
             name: "customer-register",
@@ -107,34 +118,62 @@ const router = createRouter({
             },
         },
 
+        // LOGIN
+        {
+            path: "/login",
+            name: "login",
+            component: LoginPage,
+            meta: {
+                bare: true,
+            },
+        },
+
+        // PROFIL
+        {
+            path: "/profil",
+            name: "profile",
+            component: ProfilePage,
+        },
+
+        // RIWAYAT PESANAN
+        {
+            path: "/riwayat-pesanan",
+            name: "riwayat-pesanan",
+            component: ProfilePage,
+        },
+
+        // PRODUK FAVORIT
+        {
+            path: "/produk-favorit",
+            name: "produk-favorit",
+            component: ProfilePage,
+        },
+
+        // CHECKOUT
+        {
+            path: "/checkout",
+            name: "checkout",
+            component: CheckoutPage,
+        },
+
+        // DETAIL ARTIKEL
         {
             path: "/artikel/:id",
             name: "article",
             component: ArticlePage,
+            beforeEnter: async(to) => {
+                const exists = await adaDiServer(() =>
+                    katalog.artikelDetail(to.params.id)
+                );
 
-            // Artikel yang tidak ada -> tampilkan 404 tanpa mengubah alamat
-            beforeEnter: async (to) => {
-                const exists = await adaDiServer(() => katalog.artikelDetail(to.params.id));
-
-                if (exists) {
-                    return true;
-                }
-
-                return {
-                    name: "notfound",
-                    params: {
-                        pathMatch: to.path.substring(1).split("/"),
-                    },
-                    query: to.query,
-                    hash: to.hash,
-                };
+                return exists ? true : keNotFound(to);
             },
         },
 
-        // Route admin harus sebelum route catch-all
+        // ROUTE ADMIN
         ...adminRoutes,
 
-        // Semua alamat lain yang tidak dikenal
+        // HALAMAN 404
         {
             path: "/:pathMatch(.*)*",
             name: "notfound",
@@ -148,19 +187,16 @@ const router = createRouter({
         }
 
         if (to.hash) {
-            // Beri jeda saat pindah halaman supaya elemen tujuan sudah tampil
             const wait = from.name !== to.name ? 350 : 0;
 
             return new Promise((resolve) => {
-                setTimeout(
-                    () =>
+                setTimeout(() => {
                     resolve({
                         el: to.hash,
                         top: 70,
                         behavior: "smooth",
-                    }),
-                    wait,
-                );
+                    });
+                }, wait);
             });
         }
 
@@ -170,6 +206,7 @@ const router = createRouter({
     },
 });
 
+// Pasang guard admin
 installAdminGuard(router);
 
 export default router;

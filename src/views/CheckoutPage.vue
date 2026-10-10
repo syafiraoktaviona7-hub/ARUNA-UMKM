@@ -223,25 +223,34 @@ async function submitOrder() {
       pengiriman: form.value.pengiriman,
     });
 
-    const order = res.orders[0];
+    const order = res.orders?.[0];
+    if (!order) {
+      throw new Error("Server tidak mengembalikan data pesanan.");
+    }
 
     items.value.forEach((item) => {
       cart.remove(item.key);
     });
     localStorage.removeItem(CHECKOUT_KEY);
-    loadProduk(true); // muat ulang katalog supaya stok terbaru tampil
+    try {
+      await loadProduk(true);
+    } catch (refreshError) {
+      console.warn("Gagal memperbarui katalog:", refreshError);
+    }
 
     let pesan = `Pesanan ${order.kode} berhasil dibuat!\nTotal pembayaran ${rupiah(order.total)}.`;
-    if (form.value.pembayaran === "transfer" && order.umkm.no_rekening) {
+    if (form.value.pembayaran === "transfer" && order.umkm?.no_rekening) {
       pesan += `\n\nTransfer ke ${order.umkm.bank} ${order.umkm.no_rekening} a.n. ${order.umkm.nama_rekening}.`;
-    } else if (order.umkm.whatsapp) {
+    } else if (order.umkm?.whatsapp) {
       pesan += `\n\nHubungi penjual lewat WhatsApp: ${order.umkm.whatsapp}`;
     }
     alert(pesan);
 
     router.push("/");
   } catch (error) {
-    alert(error.status === 403 ? "Hanya akun customer yang bisa membuat pesanan." : error.message);
+    alert(error?.status === 403 || error?.response?.status === 403
+      ? "Hanya akun customer yang bisa membuat pesanan."
+      : error?.message || "Pesanan gagal dibuat. Silakan coba lagi.");
   } finally {
     submitting.value = false;
   }
