@@ -65,12 +65,6 @@ const columns = [
   },
 ];
 
-// Halaman ini belum ada. Buat route-nya nanti, lalu ganti 'to'-nya.
-const legal = [
-  { label: "Kebijakan Privasi", to: "/" },
-  { label: "Syarat & Ketentuan", to: "/" },
-];
-
 const year = new Date().getFullYear();
 const logoFailed = ref(false);
 
