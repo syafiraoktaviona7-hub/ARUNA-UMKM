@@ -31,6 +31,12 @@ function hapusSesi() {
   state.user = null;
   setToken(null);
   localStorage.removeItem(STORAGE_KEY);
+
+  // Bersihkan data terkait user
+  localStorage.removeItem("aruna_cart");           // keranjang
+  localStorage.removeItem("aruna_checkout");       // checkout yang belum selesai
+  // (opsional: kalau mau favorit juga hilang, un-comment baris di bawah)
+  // localStorage.removeItem("aruna_favorites");
 }
 
 // Token ditolak server (kedaluwarsa / akun diblokir): keluar otomatis

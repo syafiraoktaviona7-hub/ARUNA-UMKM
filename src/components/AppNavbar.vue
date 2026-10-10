@@ -1,6 +1,3 @@
-function isActive(l) { if (l.id === "jasa" && route.name === "service") return
-true; if (l.id === "umkm" && route.name === "products") return true; return
-route.name === "home" && active.value === l.id; }
 <script setup>
 import { ref, watch, nextTick, onMounted, onUnmounted } from "vue";
 import { useRoute } from "vue-router";
@@ -60,9 +57,17 @@ function openRegister() {
 }
 
 function handleLogout() {
+  const oke = window.confirm("Yakin ingin keluar?\n\nKeranjang belanja Anda akan dikosongkan.");
+  if (!oke) return;
+
   closeUserMenu();
   closeMobileMenu();
   logout();
+
+  // Notifikasi kecil (muncul 2 detik)
+  setTimeout(() => {
+    alert("Anda telah keluar. Sampai jumpa lagi!");
+  }, 100);
 }
 
 function handleOutsideClick(event) {
@@ -220,7 +225,8 @@ onUnmounted(() => {
 
             <Transition name="profile-dropdown">
               <div v-if="showUserMenu" class="profile-dropdown">
-                              <!-- ★ Dashboard Penjual (hanya untuk penjual) -->
+
+                <!-- ★ Dashboard Penjual (hanya untuk penjual) -->
                 <RouterLink
                   v-if="isSeller"
                   to="/penjual"
@@ -251,71 +257,81 @@ onUnmounted(() => {
                   <span>Dashboard Penjual</span>
                 </RouterLink>
 
-                <div v-if="isSeller" class="profile-divider"></div>
-                <RouterLink
-                  to="/profil"
-                  class="profile-menu-item"
-                  @click="closeUserMenu"
-                >
-                  <span class="profile-menu-icon">
-                    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                      <circle
-                        cx="12"
-                        cy="7.5"
-                        r="3.2"
-                        stroke="currentColor"
-                        stroke-width="1.8"
-                      />
+                <!-- Menu customer (disembunyikan untuk penjual) -->
+                <template v-if="!isSeller">
+                  <RouterLink
+                    to="/profil"
+                    class="profile-menu-item"
+                    @click="closeUserMenu"
+                  >
+                    <span class="profile-menu-icon">
+                      <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                        <circle
+                          cx="12"
+                          cy="7.5"
+                          r="3.2"
+                          stroke="currentColor"
+                          stroke-width="1.8"
+                        />
 
-                      <path
-                        d="M5.5 20c.7-3.8 3-5.8 6.5-5.8s5.8 2 6.5 5.8"
-                        stroke="currentColor"
-                        stroke-width="1.8"
-                        stroke-linecap="round"
-                      />
-                    </svg>
-                  </span>
+                        <path
+                          d="M5.5 20c.7-3.8 3-5.8 6.5-5.8s5.8 2 6.5 5.8"
+                          stroke="currentColor"
+                          stroke-width="1.8"
+                          stroke-linecap="round"
+                        />
+                      </svg>
+                    </span>
 
-                  <span>Profil Saya</span>
-                </RouterLink>
+                    <span>Profil Saya</span>
+                  </RouterLink>
 
-                <button class="profile-menu-item" type="button">
-                  <span class="profile-menu-icon">
-                    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                      <path
-                        d="M6 3.5h12v17H6z"
-                        stroke="currentColor"
-                        stroke-width="1.8"
-                        stroke-linejoin="round"
-                      />
+                  <RouterLink
+                    to="/riwayat-pesanan"
+                    class="profile-menu-item"
+                    @click="closeUserMenu"
+                  >
+                    <span class="profile-menu-icon">
+                      <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                        <path
+                          d="M6 3.5h12v17H6z"
+                          stroke="currentColor"
+                          stroke-width="1.8"
+                          stroke-linejoin="round"
+                        />
 
-                      <path
-                        d="M9 7h6M9 10.5h6M9 14h4"
-                        stroke="currentColor"
-                        stroke-width="1.8"
-                        stroke-linecap="round"
-                      />
-                    </svg>
-                  </span>
+                        <path
+                          d="M9 7h6M9 10.5h6M9 14h4"
+                          stroke="currentColor"
+                          stroke-width="1.8"
+                          stroke-linecap="round"
+                        />
+                      </svg>
+                    </span>
 
-                  <span>Riwayat Pesanan</span>
-                </button>
+                    <span>Riwayat Pesanan</span>
+                  </RouterLink>
 
-                <button class="profile-menu-item" type="button">
-                  <span class="profile-menu-icon">
-                    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                      <path
-                        d="M20.8 8.8c0 5.1-8.8 10-8.8 10s-8.8-4.9-8.8-10A4.6 4.6 0 0 1 12 6.1a4.6 4.6 0 0 1 8.8 2.7Z"
-                        stroke="currentColor"
-                        stroke-width="1.8"
-                        stroke-linecap="round"
-                        stroke-linejoin="round"
-                      />
-                    </svg>
-                  </span>
+                  <RouterLink
+                    to="/produk-favorit"
+                    class="profile-menu-item"
+                    @click="closeUserMenu"
+                  >
+                    <span class="profile-menu-icon">
+                      <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                        <path
+                          d="M20.8 8.8c0 5.1-8.8 10-8.8 10s-8.8-4.9-8.8-10A4.6 4.6 0 0 1 12 6.1a4.6 4.6 0 0 1 8.8 2.7Z"
+                          stroke="currentColor"
+                          stroke-width="1.8"
+                          stroke-linecap="round"
+                          stroke-linejoin="round"
+                        />
+                      </svg>
+                    </span>
 
-                  <span>Produk Favorit</span>
-                </button>
+                    <span>Produk Favorit</span>
+                  </RouterLink>
+                </template>
 
                 <div class="profile-divider"></div>
 
@@ -415,7 +431,8 @@ onUnmounted(() => {
               </div>
               <div class="m-user-name">{{ user?.name }}</div>
             </div>
-                        <!-- ★ Dashboard Penjual (hanya untuk penjual) -->
+
+            <!-- ★ Dashboard Penjual (hanya untuk penjual) -->
             <RouterLink
               v-if="isSeller"
               to="/penjual"
@@ -426,24 +443,35 @@ onUnmounted(() => {
               <span>Dashboard Penjual</span>
             </RouterLink>
 
-            <RouterLink
-              to="/profil"
-              class="profile-menu-item"
-              @click="closeMobileMenu"
-            >
-              <span class="profile-menu-icon">👤</span>
-              <span>Profil Saya</span>
-            </RouterLink>
+            <!-- Menu customer (disembunyikan untuk penjual) -->
+            <template v-if="!isSeller">
+              <RouterLink
+                to="/profil"
+                class="profile-menu-item"
+                @click="closeMobileMenu"
+              >
+                <span class="profile-menu-icon">👤</span>
+                <span>Profil Saya</span>
+              </RouterLink>
 
-            <button class="profile-menu-item" type="button">
-              <span class="profile-menu-icon">📦</span>
-              <span>Riwayat Pesanan</span>
-            </button>
+              <RouterLink
+                to="/riwayat-pesanan"
+                class="profile-menu-item"
+                @click="closeMobileMenu"
+              >
+                <span class="profile-menu-icon">📦</span>
+                <span>Riwayat Pesanan</span>
+              </RouterLink>
 
-            <button class="profile-menu-item" type="button">
-              <span class="profile-menu-icon">♡</span>
-              <span>Produk Favorit</span>
-            </button>
+              <RouterLink
+                to="/produk-favorit"
+                class="profile-menu-item"
+                @click="closeMobileMenu"
+              >
+                <span class="profile-menu-icon">♡</span>
+                <span>Produk Favorit</span>
+              </RouterLink>
+            </template>
 
             <button
               class="profile-menu-item logout"
@@ -578,9 +606,7 @@ onUnmounted(() => {
   gap: 10px;
 }
 
-/* =========================
-   USER MENU
-========================= */
+/* USER MENU */
 
 .user-menu {
   position: relative;
@@ -653,9 +679,7 @@ onUnmounted(() => {
   transform: rotate(180deg);
 }
 
-/* =========================
-   PROFILE DROPDOWN
-========================= */
+/* PROFILE DROPDOWN */
 
 .profile-dropdown {
   position: absolute;
@@ -734,9 +758,7 @@ onUnmounted(() => {
   color: #c62828;
 }
 
-/* =========================
-   DROPDOWN ANIMATION
-========================= */
+/* DROPDOWN ANIMATION */
 
 .profile-dropdown-enter-active,
 .profile-dropdown-leave-active {
@@ -752,9 +774,7 @@ onUnmounted(() => {
   transform: translateY(-7px) scale(0.98);
 }
 
-/* =========================
-   CART
-========================= */
+/* CART */
 
 .cart-button {
   position: relative;
@@ -794,9 +814,7 @@ onUnmounted(() => {
   line-height: 1;
 }
 
-/* =========================
-   LOGIN / REGISTER
-========================= */
+/* LOGIN / REGISTER */
 
 .login-button,
 .register-button {
@@ -834,9 +852,7 @@ onUnmounted(() => {
   background: #0754b5;
 }
 
-/* =========================
-   TOMBOL MENU (HP)
-========================= */
+/* TOMBOL MENU (HP) */
 
 .burger {
   display: none;
@@ -907,9 +923,7 @@ onUnmounted(() => {
   transform: rotate(-45deg);
 }
 
-/* =========================
-   PANEL MENU (HP)
-========================= */
+/* PANEL MENU (HP) */
 
 .mobile-panel,
 .mobile-overlay {
@@ -939,9 +953,7 @@ onUnmounted(() => {
   opacity: 0;
 }
 
-/* =========================
-   TABLET / HP
-========================= */
+/* TABLET / HP */
 
 @media (max-width: 1200px) {
   .navbar-container {

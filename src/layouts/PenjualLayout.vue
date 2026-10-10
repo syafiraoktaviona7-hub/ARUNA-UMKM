@@ -12,6 +12,9 @@ const router = useRouter();
 const { user, logout } = useAuth();
 
 function keluar() {
+  const oke = window.confirm("Yakin ingin keluar dari panel penjual?");
+  if (!oke) return;
+
   logout();
   router.push("/login");
 }
