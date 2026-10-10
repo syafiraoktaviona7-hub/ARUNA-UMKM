@@ -7,7 +7,7 @@ import { useWilayahFilter } from "@/composables/useWilayahFilter";
 const router = useRouter();
 const route  = useRoute();
 
-const { registerUser } = useAuth();
+const { registerUser, requestOtp, verifyOtp } = useAuth();
 
 const {
   provinces,
@@ -60,65 +60,134 @@ const form = ref({
   alamatLengkap: "",
 });
 
-// =========================
 // PREFILL nomor HP dari ?phone=+62...
-// Di-set oleh LoginPage setelah OTP berhasil
-// dan nomor belum terdaftar.
-// HARUS setelah `form` dideklarasikan.
-// =========================
 if (route.query.phone) {
   const raw   = String(route.query.phone).replace(/^\+/, "");
   const lokal = raw.startsWith("62") ? "0" + raw.slice(2) : raw;
   form.value.nomorHp = lokal;
 }
 
+// =========================
+// OTP VERIFIKASI NOMOR HP
+// =========================
+const otpSent      = ref(false);
+const otpVerified  = ref(false);
+const otpLoading   = ref(false);
+const otpError     = ref("");
+const otpCode      = ref("");
+const otpCanonical = ref("");
+const otpCooldown  = ref(0);
+let   otpCooldownTimer = null;
+
+const otpCanResend = computed(() => otpCooldown.value <= 0);
+const otpPhoneNow  = computed(() => form.value.nomorHp.trim());
+
+function startOtpCooldown() {
+  otpCooldown.value = 60;
+  if (otpCooldownTimer) clearInterval(otpCooldownTimer);
+  otpCooldownTimer = setInterval(() => {
+    otpCooldown.value--;
+    if (otpCooldown.value <= 0) {
+      clearInterval(otpCooldownTimer);
+      otpCooldownTimer = null;
+    }
+  }, 1000);
+}
+
+function onPhoneChange() {
+  if (otpVerified.value) {
+    otpVerified.value = false;
+    otpSent.value     = false;
+    otpCode.value     = "";
+    otpError.value    = "";
+  }
+}
+
+async function mintaOtp() {
+  otpError.value = "";
+
+  if (!form.value.nomorHp.trim()) {
+    otpError.value = "Isi nomor HP terlebih dahulu.";
+    return;
+  }
+  if (form.value.nomorHp.replace(/\D/g, "").length < 9) {
+    otpError.value = "Nomor HP terlalu pendek.";
+    return;
+  }
+
+  otpLoading.value = true;
+  try {
+    const res = await requestOtp(form.value.nomorHp, "register");
+    otpCanonical.value = res.phone || form.value.nomorHp;
+    otpSent.value      = true;
+    otpVerified.value  = false;
+    otpCode.value      = "";
+    startOtpCooldown();
+  } catch (e) {
+    otpError.value = e.message || "Gagal mengirim OTP.";
+  } finally {
+    otpLoading.value = false;
+  }
+}
+
+async function kirimUlangOtp() {
+  if (!otpCanResend.value) return;
+  otpError.value = "";
+  otpLoading.value = true;
+  try {
+    await requestOtp(otpCanonical.value, "register");
+    startOtpCooldown();
+  } catch (e) {
+    otpError.value = e.message || "Gagal mengirim ulang OTP.";
+  } finally {
+    otpLoading.value = false;
+  }
+}
+
+async function cekOtp() {
+  otpError.value = "";
+  if (otpCode.value.length < 4) {
+    otpError.value = "Kode OTP minimal 4 digit.";
+    return;
+  }
+
+  otpLoading.value = true;
+  try {
+    await verifyOtp(otpCanonical.value, otpCode.value, "register");
+    otpVerified.value = true;
+    otpError.value    = "";
+  } catch (e) {
+    otpError.value = e.message || "Kode OTP salah.";
+    otpCode.value  = "";
+  } finally {
+    otpLoading.value = false;
+  }
+}
+
+// =========================
+// NAVIGASI STEP
+// =========================
 function kembali() {
-  if (currentStep.value === 3) {
-    currentStep.value = 2;
-    return;
-  }
-
-  if (currentStep.value === 2) {
-    currentStep.value = 1;
-    return;
-  }
-
+  if (currentStep.value === 3) { currentStep.value = 2; return; }
+  if (currentStep.value === 2) { currentStep.value = 1; return; }
   router.push("/");
 }
 
 function lanjutkan() {
   let emptyFields = [];
 
-  // =========================
-  // STEP 1 - DATA DIRI
-  // =========================
   if (currentStep.value === 1) {
-    if (!form.value.nama.trim()) {
-      emptyFields.push("Nama Lengkap");
-    }
+    if (!form.value.nama.trim())               emptyFields.push("Nama Lengkap");
+    if (!form.value.email.trim())              emptyFields.push("Email");
+    if (!form.value.nomorHp.trim())            emptyFields.push("Nomor HP");
+    if (!form.value.tanggalLahir)              emptyFields.push("Tanggal Lahir");
+    if (!form.value.jenisKelamin)              emptyFields.push("Jenis Kelamin");
+    if (!form.value.password.trim())           emptyFields.push("Password");
+    if (!form.value.konfirmasiPassword.trim()) emptyFields.push("Konfirmasi Password");
 
-    if (!form.value.email.trim()) {
-      emptyFields.push("Email");
-    }
-
-    if (!form.value.nomorHp.trim()) {
-      emptyFields.push("Nomor HP");
-    }
-
-    if (!form.value.tanggalLahir) {
-      emptyFields.push("Tanggal Lahir");
-    }
-
-    if (!form.value.jenisKelamin) {
-      emptyFields.push("Jenis Kelamin");
-    }
-
-    if (!form.value.password.trim()) {
-      emptyFields.push("Password");
-    }
-
-    if (!form.value.konfirmasiPassword.trim()) {
-      emptyFields.push("Konfirmasi Password");
+    if (emptyFields.length > 0) {
+      showValidationPopup(emptyFields);
+      return;
     }
 
     if (form.value.password !== form.value.konfirmasiPassword) {
@@ -128,66 +197,54 @@ function lanjutkan() {
         message: "Password dan konfirmasi password harus sama.",
         fields: [],
       };
+      return;
+    }
 
+    if (!otpVerified.value) {
+      validationPopup.value = {
+        show: true,
+        title: "Verifikasi Nomor HP",
+        message: "Silakan verifikasi nomor HP Anda dengan kode OTP terlebih dahulu.",
+        fields: [],
+      };
       return;
     }
   }
 
-  // =========================
-  // STEP 2 - ALAMAT
-  // =========================
   if (currentStep.value === 2) {
-    if (!provinceId.value) {
-      emptyFields.push("Provinsi");
-    }
-
-    if (!cityId.value) {
-      emptyFields.push("Kota / Kabupaten");
-    }
-
-    if (!districtId.value) {
-      emptyFields.push("Kecamatan");
-    }
-
-    if (!villageId.value) {
-      emptyFields.push("Kelurahan / Desa");
-    }
-
-    if (!form.value.kodePos.trim()) {
-      emptyFields.push("Kode Pos");
-    }
-
-    if (!form.value.alamatLengkap.trim()) {
-      emptyFields.push("Alamat Lengkap");
-    }
+    if (!provinceId.value)                emptyFields.push("Provinsi");
+    if (!cityId.value)                    emptyFields.push("Kota / Kabupaten");
+    if (!districtId.value)                emptyFields.push("Kecamatan");
+    if (!villageId.value)                 emptyFields.push("Kelurahan / Desa");
+    if (!form.value.kodePos.trim())       emptyFields.push("Kode Pos");
+    if (!form.value.alamatLengkap.trim()) emptyFields.push("Alamat Lengkap");
   }
 
-  // =========================
-  // JIKA ADA DATA KOSONG
-  // =========================
   if (emptyFields.length > 0) {
     showValidationPopup(emptyFields);
     return;
   }
 
-  // =========================
-  // LANJUT KE STEP BERIKUTNYA
-  // =========================
   if (currentStep.value < 3) {
     currentStep.value++;
   }
 }
 
-function ubahDataDiri() {
-  currentStep.value = 1;
-}
-
-function ubahAlamat() {
-  currentStep.value = 2;
-}
+function ubahDataDiri() { currentStep.value = 1; }
+function ubahAlamat()   { currentStep.value = 2; }
 
 async function daftarSekarang() {
   const namaDari = (daftar, id) => daftar.value.find((x) => x.id === id)?.name || "";
+
+  if (!otpVerified.value) {
+    validationPopup.value = {
+      show: true,
+      title: "Verifikasi Nomor HP",
+      message: "Silakan kembali ke langkah Data Diri dan verifikasi nomor HP Anda.",
+      fields: [],
+    };
+    return;
+  }
 
   try {
     await registerUser({
@@ -200,8 +257,8 @@ async function daftarSekarang() {
       tanggalLahir: form.value.tanggalLahir,
       jenisKelamin: form.value.jenisKelamin,
 
-      provinsi: namaDari(provinces, provinceId.value),
-      kota: namaDari(cities, cityId.value),
+      provinsi:  namaDari(provinces, provinceId.value),
+      kota:      namaDari(cities, cityId.value),
       kecamatan: namaDari(districts, districtId.value),
       kelurahan: namaDari(villages, villageId.value),
       kodePos: form.value.kodePos,
@@ -209,28 +266,19 @@ async function daftarSekarang() {
     });
 
     alert("Pendaftaran berhasil! Silakan login menggunakan akun yang baru dibuat.");
-
     router.push("/login");
   } catch (error) {
     alert(error.message);
   }
 }
 
-const alamatCounter = computed(() => {
-  return form.value.alamatLengkap.length;
-});
+const alamatCounter = computed(() => form.value.alamatLengkap.length);
 
 const tanggalLahirFormatted = computed(() => {
-  if (!form.value.tanggalLahir) {
-    return "-";
-  }
-
+  if (!form.value.tanggalLahir) return "-";
   const tanggal = new Date(form.value.tanggalLahir);
-
   return tanggal.toLocaleDateString("id-ID", {
-    day: "numeric",
-    month: "long",
-    year: "numeric",
+    day: "numeric", month: "long", year: "numeric",
   });
 });
 
@@ -238,21 +286,13 @@ const showPhoneError = ref(false);
 
 function handlePhoneInput(event) {
   const value = event.target.value;
-
-  // Cek apakah ada karakter selain angka
-  if (/[^0-9]/.test(value)) {
-    showPhoneError.value = true;
-  }
-
-  // Hanya simpan angka
-  const cleanedValue = value.replace(/[^0-9]/g, "");
-
-  form.value.nomorHp = cleanedValue;
+  if (/[^0-9]/.test(value)) showPhoneError.value = true;
+  const cleaned = value.replace(/[^0-9]/g, "");
+  form.value.nomorHp = cleaned;
+  onPhoneChange();
 }
 
-function closePhoneError() {
-  showPhoneError.value = false;
-}
+function closePhoneError() { showPhoneError.value = false; }
 </script>
 
 <template>
@@ -260,7 +300,6 @@ function closePhoneError() {
     <!-- BAGIAN KIRI -->
     <section class="left-section">
       <div class="left-content">
-       
         <div class="left-title">
           <h1>
             Bergabung sebagai
@@ -274,49 +313,31 @@ function closePhoneError() {
         </div>
 
         <div class="customer-illustration">
-          <img
-            src="/images/customer-register.png"
-            alt="Customer ARUNA"
-          />
+          <img src="/images/customer-register.png" alt="Customer ARUNA" />
         </div>
 
         <div class="benefit-card">
           <div class="benefit-item">
-            <div class="benefit-icon">
-              🛍️
-            </div>
-
+            <div class="benefit-icon">🛍️</div>
             <div>
               <h3>Beragam Produk UMKM</h3>
-              <p>
-                Dari makanan, fashion, hingga kerajinan tangan lokal.
-              </p>
+              <p>Dari makanan, fashion, hingga kerajinan tangan lokal.</p>
             </div>
           </div>
 
           <div class="benefit-item">
-            <div class="benefit-icon">
-              ✓
-            </div>
-
+            <div class="benefit-icon">✓</div>
             <div>
               <h3>Transaksi Aman</h3>
-              <p>
-                Belanja dengan aman dan nyaman.
-              </p>
+              <p>Belanja dengan aman dan nyaman.</p>
             </div>
           </div>
 
           <div class="benefit-item">
-            <div class="benefit-icon heart">
-              ♥
-            </div>
-
+            <div class="benefit-icon heart">♥</div>
             <div>
               <h3>Dukung UMKM Indonesia</h3>
-              <p>
-                Setiap transaksi membantu pertumbuhan pelaku usaha lokal.
-              </p>
+              <p>Setiap transaksi membantu pertumbuhan pelaku usaha lokal.</p>
             </div>
           </div>
         </div>
@@ -329,11 +350,7 @@ function closePhoneError() {
 
         <!-- TOP -->
         <div class="card-top">
-          <button
-            class="back-button"
-            type="button"
-            @click="kembali"
-          >
+          <button class="back-button" type="button" @click="kembali">
             <span>←</span>
           </button>
 
@@ -341,7 +358,7 @@ function closePhoneError() {
 
           <div class="login-text">
             Sudah punya akun?
-            <a href="#">Masuk</a>
+            <a href="/login">Masuk</a>
           </div>
         </div>
 
@@ -351,132 +368,163 @@ function closePhoneError() {
             Daftar Akun
             <span>Customer</span>
           </h2>
-
           <p>
             Lengkapi data diri Anda untuk membuat akun baru
             di platform ARUNA.
           </p>
         </div>
 
-<!-- PROGRESS -->
-<div class="progress-wrapper">
-  <div class="progress-line">
-    <div
-      class="progress-active"
-      :class="{
-        'step-two': currentStep === 2,
-        'step-three': currentStep === 3
-      }"
-    ></div>
-  </div>
+        <!-- PROGRESS -->
+        <div class="progress-wrapper">
+          <div class="progress-line">
+            <div
+              class="progress-active"
+              :class="{
+                'step-two': currentStep === 2,
+                'step-three': currentStep === 3
+              }"
+            ></div>
+          </div>
 
-  <!-- STEP 1 -->
-  <div
-    class="progress-step"
-    :class="{
-      active: currentStep === 1,
-      completed: currentStep === 2 || currentStep === 3
-    }"
-  >
-    <div class="step-circle">1</div>
-    <span>Data Diri</span>
-  </div>
+          <div
+            class="progress-step"
+            :class="{
+              active: currentStep === 1,
+              completed: currentStep === 2 || currentStep === 3
+            }"
+          >
+            <div class="step-circle">1</div>
+            <span>Data Diri</span>
+          </div>
 
-  <!-- STEP 2 -->
-  <div
-    class="progress-step"
-    :class="{
-      active: currentStep === 2,
-      completed: currentStep === 3
-    }"
-  >
-    <div class="step-circle">2</div>
-    <span>Alamat</span>
-  </div>
+          <div
+            class="progress-step"
+            :class="{
+              active: currentStep === 2,
+              completed: currentStep === 3
+            }"
+          >
+            <div class="step-circle">2</div>
+            <span>Alamat</span>
+          </div>
 
-  <!-- STEP 3 -->
-  <div
-    class="progress-step"
-    :class="{ active: currentStep === 3 }"
-  >
-    <div class="step-circle">3</div>
-    <span>Konfirmasi</span>
-  </div>
-</div>
+          <div class="progress-step" :class="{ active: currentStep === 3 }">
+            <div class="step-circle">3</div>
+            <span>Konfirmasi</span>
+          </div>
+        </div>
 
-
-
-        <!-- DATA DIRI -->
-       <!-- STEP 1 : DATA DIRI -->
-<div
-  v-if="currentStep === 1"
-  class="form-section"
->
+        <!-- STEP 1 : DATA DIRI -->
+        <div v-if="currentStep === 1" class="form-section">
           <h3>Data Diri</h3>
-
           <p class="form-description">
             Masukkan informasi dasar Anda dengan benar.
           </p>
 
           <div class="form-grid">
-
             <!-- Nama -->
             <div class="form-group">
               <label>Nama Lengkap</label>
-
               <div class="input-wrapper">
                 <span class="input-icon">♙</span>
-
-                <input
-                  v-model="form.nama"
-                  type="text"
-                  placeholder="Masukkan nama lengkap Anda"
-                />
+                <input v-model="form.nama" type="text" placeholder="Masukkan nama lengkap Anda" />
               </div>
             </div>
 
             <!-- Email -->
             <div class="form-group">
               <label>Alamat Email</label>
-
               <div class="input-wrapper">
                 <span class="input-icon">✉</span>
-
-                <input
-                  v-model="form.email"
-                  type="email"
-                  placeholder="contoh@email.com"
-                />
+                <input v-model="form.email" type="email" placeholder="contoh@email.com" />
               </div>
             </div>
 
-            <!-- Nomor HP -->
+            <!-- Nomor HP + Verifikasi OTP -->
             <div class="form-group">
               <label>Nomor Handphone</label>
 
-              <div class="input-wrapper">
-                <span class="input-icon">⌕</span>
+              <div class="phone-row">
+                <div class="input-wrapper">
+                  <span class="input-icon">⌕</span>
 
-                <input
-                  v-model="form.nomorHp"
-                  type="tel"
-                  placeholder="08xxxxxxxx"
-                  @input="handlePhoneInput"
-                />
+                  <input
+                    v-model="form.nomorHp"
+                    type="tel"
+                    placeholder="08xxxxxxxx"
+                    @input="handlePhoneInput"
+                    :disabled="otpVerified"
+                  />
+
+                  <span v-if="otpVerified" class="verified-badge">
+                    <svg viewBox="0 0 24 24" width="18" height="18">
+                      <circle cx="12" cy="12" r="10" fill="#22c55e"/>
+                      <path d="m8 12.5 2.5 2.5L16 9.5" stroke="#fff" stroke-width="2"
+                            stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+                    </svg>
+                  </span>
+                </div>
+
+                <button
+                  v-if="!otpVerified"
+                  type="button"
+                  class="verify-phone-btn"
+                  :disabled="otpLoading || !otpPhoneNow"
+                  @click="otpSent ? kirimUlangOtp() : mintaOtp()"
+                >
+                  <span v-if="otpLoading">...</span>
+                  <span v-else-if="otpSent && !otpCanResend">{{ otpCooldown }}s</span>
+                  <span v-else-if="otpSent">Kirim Ulang</span>
+                  <span v-else>Verifikasi</span>
+                </button>
               </div>
+
+              <small class="phone-hint">
+                Nomor akan diverifikasi via OTP WhatsApp.
+              </small>
             </div>
+
+            <!-- Field OTP -->
+            <div v-if="otpSent && !otpVerified" class="form-group">
+              <label>Kode OTP</label>
+
+              <div class="phone-row">
+                <div class="input-wrapper">
+                  <span class="input-icon">🔒</span>
+
+                  <input
+                    v-model="otpCode"
+                    type="text"
+                    inputmode="numeric"
+                    maxlength="6"
+                    placeholder="6 digit kode"
+                    autocomplete="one-time-code"
+                  />
+                </div>
+
+                <button
+                  type="button"
+                  class="verify-phone-btn solid"
+                  :disabled="otpLoading || otpCode.length < 4"
+                  @click="cekOtp"
+                >
+                  Cek Kode
+                </button>
+              </div>
+
+              <small class="phone-hint">
+                Kode dikirim ke <strong>{{ otpCanonical }}</strong>
+              </small>
+            </div>
+
+            <p v-if="otpError" class="otp-error">{{ otpError }}</p>
 
             <!-- Tanggal lahir -->
             <div class="form-group">
               <label>Tanggal Lahir</label>
-
               <div class="input-wrapper">
                 <span class="input-icon">▣</span>
-
-                <input
-                  v-model="form.tanggalLahir"
-                  type="date"
-                />
+                <input v-model="form.tanggalLahir" type="date" />
               </div>
             </div>
 
@@ -485,662 +533,374 @@ function closePhoneError() {
               <label>Jenis Kelamin</label>
 
               <div class="gender-options">
-
                 <button
                   type="button"
                   class="gender-option"
-                  :class="{
-                    selected: form.jenisKelamin === 'Laki-laki'
-                  }"
+                  :class="{ selected: form.jenisKelamin === 'Laki-laki' }"
                   @click="form.jenisKelamin = 'Laki-laki'"
                 >
                   <span class="gender-symbol male">♂</span>
-
                   <span>Laki-laki</span>
-
                   <span class="radio"></span>
                 </button>
 
                 <button
                   type="button"
                   class="gender-option"
-                  :class="{
-                    selected: form.jenisKelamin === 'Perempuan'
-                  }"
+                  :class="{ selected: form.jenisKelamin === 'Perempuan' }"
                   @click="form.jenisKelamin = 'Perempuan'"
                 >
                   <span class="gender-symbol female">♀</span>
-
                   <span>Perempuan</span>
-
                   <span class="radio"></span>
                 </button>
-
               </div>
             </div>
 
             <!-- Password -->
             <div class="form-group password-group">
               <label>Password</label>
-
               <div class="input-wrapper">
                 <span class="input-icon">♙</span>
-
-                <input
-                  v-model="form.password"
-                  type="password"
-                  placeholder="Masukkan password"
-                />
-
+                <input v-model="form.password" type="password" placeholder="Masukkan password" />
                 <span class="eye-icon">◉</span>
               </div>
-
-              <small>
-                Minimal 8 karakter dengan kombinasi huruf, angka, dan simbol.
-              </small>
+              <small>Minimal 8 karakter dengan kombinasi huruf, angka, dan simbol.</small>
             </div>
 
-<!-- Konfirmasi Password -->
-<div class="form-group password-group">
-  <label>Konfirmasi Password</label>
-
-  <div class="input-wrapper">
-    <span class="input-icon">♙</span>
-
-    <input
-      v-model="form.konfirmasiPassword"
-      type="password"
-      placeholder="Masukkan kembali password"
-    />
-
-    <span class="eye-icon">◉</span>
-  </div>
-</div>
-
+            <!-- Konfirmasi Password -->
+            <div class="form-group password-group">
+              <label>Konfirmasi Password</label>
+              <div class="input-wrapper">
+                <span class="input-icon">♙</span>
+                <input v-model="form.konfirmasiPassword" type="password" placeholder="Masukkan kembali password" />
+                <span class="eye-icon">◉</span>
+              </div>
+            </div>
           </div>
         </div>
 
-<!-- STEP 2 : ALAMAT -->
-<div
-  v-if="currentStep === 2"
-  class="form-section address-section"
->
-  <h3>Alamat</h3>
+        <!-- STEP 2 : ALAMAT -->
+        <div v-if="currentStep === 2" class="form-section address-section">
+          <h3>Alamat</h3>
+          <p class="form-description">
+            Masukkan alamat lengkap Anda untuk memudahkan proses
+            pengiriman dan layanan.
+          </p>
 
-  <p class="form-description">
-    Masukkan alamat lengkap Anda untuk memudahkan proses
-    pengiriman dan layanan.
-  </p>
+          <div class="address-form-group">
+            <label>Provinsi</label>
+            <div class="select-wrapper">
+              <span class="address-icon">
+                <svg viewBox="0 0 24 24" fill="none">
+                  <path d="M12 21s7-6.2 7-12a7 7 0 1 0-14 0c0 5.8 7 12 7 12Z" stroke="currentColor" stroke-width="1.8" />
+                  <circle cx="12" cy="9" r="2.5" stroke="currentColor" stroke-width="1.8" />
+                </svg>
+              </span>
+              <select v-model="provinceId">
+                <option value="" disabled>Pilih provinsi</option>
+                <option v-for="province in provinces" :key="province.id" :value="province.id">
+                  {{ province.name }}
+                </option>
+              </select>
+            </div>
+          </div>
 
-  <!-- PROVINSI -->
-  <div class="address-form-group">
-    <label>Provinsi</label>
+          <div class="address-form-group">
+            <label>Kota / Kabupaten</label>
+            <div class="select-wrapper">
+              <span class="address-icon">
+                <svg viewBox="0 0 24 24" fill="none">
+                  <path d="M4 21V5a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v16" stroke="currentColor" stroke-width="1.8" />
+                  <path d="M16 9h3a1 1 0 0 1 1 1v11" stroke="currentColor" stroke-width="1.8" />
+                  <path d="M8 7h2M8 11h2M8 15h2M13 7h1M13 11h1M13 15h1" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" />
+                </svg>
+              </span>
+              <select v-model="cityId" :disabled="!provinceId">
+                <option value="" disabled>Pilih kota / kabupaten</option>
+                <option v-for="city in cities" :key="city.id" :value="city.id">
+                  {{ city.name }}
+                </option>
+              </select>
+            </div>
+          </div>
 
-    <div class="select-wrapper">
-      <span class="address-icon">
-        <svg viewBox="0 0 24 24" fill="none">
-          <path
-            d="M12 21s7-6.2 7-12a7 7 0 1 0-14 0c0 5.8 7 12 7 12Z"
-            stroke="currentColor"
-            stroke-width="1.8"
-          />
-          <circle
-            cx="12"
-            cy="9"
-            r="2.5"
-            stroke="currentColor"
-            stroke-width="1.8"
-          />
-        </svg>
-      </span>
+          <div class="address-form-group">
+            <label>Kecamatan</label>
+            <div class="select-wrapper">
+              <span class="address-icon">
+                <svg viewBox="0 0 24 24" fill="none">
+                  <path d="M4 6l6-3 4 3 6-3v15l-6 3-4-3-6 3V6Z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" />
+                  <path d="M10 3v15M14 6v15" stroke="currentColor" stroke-width="1.8" />
+                </svg>
+              </span>
+              <select v-model="districtId" :disabled="!cityId">
+                <option value="" disabled>Pilih kecamatan</option>
+                <option v-for="district in districts" :key="district.id" :value="district.id">
+                  {{ district.name }}
+                </option>
+              </select>
+            </div>
+          </div>
 
-     <select v-model="provinceId">
-  <option value="" disabled>Pilih provinsi</option>
+          <div class="address-form-group">
+            <label>Kelurahan / Desa</label>
+            <div class="select-wrapper">
+              <span class="address-icon">
+                <svg viewBox="0 0 24 24" fill="none">
+                  <path d="M3 11.5 12 4l9 7.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
+                  <path d="M5.5 10.5V20h13v-9.5" stroke="currentColor" stroke-width="1.8" />
+                  <path d="M9 20v-5h6v5" stroke="currentColor" stroke-width="1.8" />
+                </svg>
+              </span>
+              <select v-model="villageId" :disabled="!districtId">
+                <option value="" disabled>Pilih kelurahan / desa</option>
+                <option v-for="village in villages" :key="village.id" :value="village.id">
+                  {{ village.name }}
+                </option>
+              </select>
+            </div>
 
-  <option
-    v-for="province in provinces"
-    :key="province.id"
-    :value="province.id"
-  >
-    {{ province.name }}
-  </option>
-</select>
-    </div>
-  </div>
+            <!-- Kode Pos -->
+            <div class="address-form-group">
+              <label for="kodePos">Kode Pos</label>
+              <div class="select-wrapper">
+                <span class="address-icon">
+                  <svg viewBox="0 0 24 24" fill="none">
+                    <rect x="3" y="5" width="18" height="14" rx="2" stroke="currentColor" stroke-width="1.8" />
+                    <path d="M7 9h4M7 13h10M7 16h6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" />
+                  </svg>
+                </span>
+                <input
+                  id="kodePos"
+                  v-model="form.kodePos"
+                  type="text"
+                  inputmode="numeric"
+                  maxlength="5"
+                  placeholder="Masukkan 5 digit kode pos"
+                  autocomplete="postal-code"
+                  @input="form.kodePos = form.kodePos.replace(/\D/g, '').slice(0, 5)"
+                />
+              </div>
+            </div>
+          </div>
 
-  <!-- KOTA -->
-  <div class="address-form-group">
-    <label>Kota / Kabupaten</label>
-
-    <div class="select-wrapper">
-      <span class="address-icon">
-        <svg viewBox="0 0 24 24" fill="none">
-          <path
-            d="M4 21V5a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v16"
-            stroke="currentColor"
-            stroke-width="1.8"
-          />
-          <path
-            d="M16 9h3a1 1 0 0 1 1 1v11"
-            stroke="currentColor"
-            stroke-width="1.8"
-          />
-          <path
-            d="M8 7h2M8 11h2M8 15h2M13 7h1M13 11h1M13 15h1"
-            stroke="currentColor"
-            stroke-width="1.8"
-            stroke-linecap="round"
-          />
-        </svg>
-      </span>
-
-     <select
-  v-model="cityId"
-  :disabled="!provinceId"
->
-  <option value="" disabled>
-    Pilih kota / kabupaten
-  </option>
-
-  <option
-    v-for="city in cities"
-    :key="city.id"
-    :value="city.id"
-  >
-    {{ city.name }}
-  </option>
-</select>
-    </div>
-  </div>
-
-  <!-- KECAMATAN -->
-  <div class="address-form-group">
-    <label>Kecamatan</label>
-
-    <div class="select-wrapper">
-      <span class="address-icon">
-        <svg viewBox="0 0 24 24" fill="none">
-          <path
-            d="M4 6l6-3 4 3 6-3v15l-6 3-4-3-6 3V6Z"
-            stroke="currentColor"
-            stroke-width="1.8"
-            stroke-linejoin="round"
-          />
-          <path
-            d="M10 3v15M14 6v15"
-            stroke="currentColor"
-            stroke-width="1.8"
-          />
-        </svg>
-      </span>
-
-      <select
-  v-model="districtId"
-  :disabled="!cityId"
->
-  <option value="" disabled>
-    Pilih kecamatan
-  </option>
-
-  <option
-    v-for="district in districts"
-    :key="district.id"
-    :value="district.id"
-  >
-    {{ district.name }}
-  </option>
-</select>
-    </div>
-  </div>
-
-  <!-- KELURAHAN -->
-  <div class="address-form-group">
-    <label>Kelurahan / Desa</label>
-
-    <div class="select-wrapper">
-      <span class="address-icon">
-        <svg viewBox="0 0 24 24" fill="none">
-          <path
-            d="M3 11.5 12 4l9 7.5"
-            stroke="currentColor"
-            stroke-width="1.8"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-          />
-          <path
-            d="M5.5 10.5V20h13v-9.5"
-            stroke="currentColor"
-            stroke-width="1.8"
-          />
-          <path
-            d="M9 20v-5h6v5"
-            stroke="currentColor"
-            stroke-width="1.8"
-          />
-        </svg>
-      </span>
-
-      <select
-  v-model="villageId"
-  :disabled="!districtId"
->
-  <option value="" disabled>
-    Pilih kelurahan / desa
-  </option>
-
-  <option
-    v-for="village in villages"
-    :key="village.id"
-    :value="village.id"
-  >
-    {{ village.name }}
-  </option>
-</select>
-    </div>
-      <!-- KODE POS -->
-  <div class="address-form-group">
-    <label for="kodePos">Kode Pos</label>
-
-    <div class="select-wrapper">
-      <span class="address-icon">
-        <svg viewBox="0 0 24 24" fill="none">
-          <rect
-            x="3"
-            y="5"
-            width="18"
-            height="14"
-            rx="2"
-            stroke="currentColor"
-            stroke-width="1.8"
-          />
-          <path
-            d="M7 9h4M7 13h10M7 16h6"
-            stroke="currentColor"
-            stroke-width="1.8"
-            stroke-linecap="round"
-          />
-        </svg>
-      </span>
-
-      <input
-        id="kodePos"
-        v-model="form.kodePos"
-        type="text"
-        inputmode="numeric"
-        maxlength="5"
-        placeholder="Masukkan 5 digit kode pos"
-        autocomplete="postal-code"
-        @input="form.kodePos = form.kodePos.replace(/\D/g, '').slice(0, 5)"
-      />
-    </div>
-  </div>
-  </div>
-
-  <!-- ALAMAT LENGKAP -->
-  <div class="address-form-group full-address">
-    <label>Alamat Lengkap</label>
-
-    <div class="textarea-wrapper">
-      <span class="address-icon">
-        <svg viewBox="0 0 24 24" fill="none">
-          <path
-            d="M6 3h9l4 4v14H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2Z"
-            stroke="currentColor"
-            stroke-width="1.8"
-            stroke-linejoin="round"
-          />
-          <path
-            d="M14 3v5h5M8 12h8M8 16h6"
-            stroke="currentColor"
-            stroke-width="1.8"
-            stroke-linecap="round"
-          />
-        </svg>
-      </span>
-
-      <textarea
-        v-model="form.alamatLengkap"
-        maxlength="200"
-        placeholder="Masukkan alamat lengkap (nama jalan, nomor rumah, RT/RW, dll)"
-      ></textarea>
-
-      <span class="address-counter">
-        {{ alamatCounter }}/200
-      </span>
-    </div>
-  </div>
-</div>
-
-<!-- STEP 3 : KONFIRMASI -->
-<div
-  v-if="currentStep === 3"
-  class="form-section confirmation-section"
->
-  <h3>Konfirmasi Data</h3>
-
-  <p class="form-description">
-    Periksa kembali data Anda sebelum membuat akun Customer ARUNA.
-  </p>
-
-  <!-- DATA DIRI -->
-  <div class="confirmation-card">
-
-    <div class="confirmation-header">
-      <div class="confirmation-title">
-        <div class="confirmation-icon">
-          <svg viewBox="0 0 24 24" fill="none">
-            <circle
-              cx="12"
-              cy="8"
-              r="3.5"
-              stroke="currentColor"
-              stroke-width="1.8"
-            />
-            <path
-              d="M5 20c.8-3.2 3.2-5 7-5s6.2 1.8 7 5"
-              stroke="currentColor"
-              stroke-width="1.8"
-              stroke-linecap="round"
-            />
-          </svg>
+          <div class="address-form-group full-address">
+            <label>Alamat Lengkap</label>
+            <div class="textarea-wrapper">
+              <span class="address-icon">
+                <svg viewBox="0 0 24 24" fill="none">
+                  <path d="M6 3h9l4 4v14H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2Z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" />
+                  <path d="M14 3v5h5M8 12h8M8 16h6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" />
+                </svg>
+              </span>
+              <textarea
+                v-model="form.alamatLengkap"
+                maxlength="200"
+                placeholder="Masukkan alamat lengkap (nama jalan, nomor rumah, RT/RW, dll)"
+              ></textarea>
+              <span class="address-counter">{{ alamatCounter }}/200</span>
+            </div>
+          </div>
         </div>
 
-        <div>
-          <h4>Data Diri</h4>
-          <p>Informasi dasar akun Anda</p>
+        <!-- STEP 3 : KONFIRMASI -->
+        <div v-if="currentStep === 3" class="form-section confirmation-section">
+          <h3>Konfirmasi Data</h3>
+          <p class="form-description">
+            Periksa kembali data Anda sebelum membuat akun Customer ARUNA.
+          </p>
+
+          <div class="confirmation-card">
+            <div class="confirmation-header">
+              <div class="confirmation-title">
+                <div class="confirmation-icon">
+                  <svg viewBox="0 0 24 24" fill="none">
+                    <circle cx="12" cy="8" r="3.5" stroke="currentColor" stroke-width="1.8" />
+                    <path d="M5 20c.8-3.2 3.2-5 7-5s6.2 1.8 7 5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" />
+                  </svg>
+                </div>
+                <div>
+                  <h4>Data Diri</h4>
+                  <p>Informasi dasar akun Anda</p>
+                </div>
+              </div>
+
+              <button type="button" class="edit-button" @click="ubahDataDiri">
+                <span>✎</span> Ubah
+              </button>
+            </div>
+
+            <div class="confirmation-divider"></div>
+
+            <div class="confirmation-data-grid">
+              <div class="confirmation-data">
+                <span>Nama Lengkap</span>
+                <strong>{{ form.nama || "-" }}</strong>
+              </div>
+              <div class="confirmation-data">
+                <span>Alamat Email</span>
+                <strong>{{ form.email || "-" }}</strong>
+              </div>
+              <div class="confirmation-data">
+                <span>Nomor Handphone</span>
+                <strong>{{ form.nomorHp || "-" }}</strong>
+              </div>
+              <div class="confirmation-data">
+                <span>Tanggal Lahir</span>
+                <strong>{{ tanggalLahirFormatted }}</strong>
+              </div>
+              <div class="confirmation-data">
+                <span>Jenis Kelamin</span>
+                <strong>{{ form.jenisKelamin || "-" }}</strong>
+              </div>
+            </div>
+          </div>
+
+          <div class="confirmation-card">
+            <div class="confirmation-header">
+              <div class="confirmation-title">
+                <div class="confirmation-icon">
+                  <svg viewBox="0 0 24 24" fill="none">
+                    <path d="M12 21s7-6.2 7-12a7 7 0 1 0-14 0c0 5.8 7 12 7 12Z" stroke="currentColor" stroke-width="1.8" />
+                    <circle cx="12" cy="9" r="2.5" stroke="currentColor" stroke-width="1.8" />
+                  </svg>
+                </div>
+                <div>
+                  <h4>Alamat</h4>
+                  <p>Informasi alamat Anda</p>
+                </div>
+              </div>
+
+              <button type="button" class="edit-button" @click="ubahAlamat">
+                <span>✎</span> Ubah
+              </button>
+            </div>
+
+            <div class="confirmation-divider"></div>
+
+            <div class="confirmation-data-grid">
+              <div class="confirmation-data">
+                <span>Provinsi</span>
+                <strong>{{ selected.province || "-" }}</strong>
+              </div>
+              <div class="confirmation-data">
+                <span>Kota / Kabupaten</span>
+                <strong>{{ selected.city || "-" }}</strong>
+              </div>
+              <div class="confirmation-data">
+                <span>Kecamatan</span>
+                <strong>{{ selected.district || "-" }}</strong>
+              </div>
+              <div class="confirmation-data">
+                <span>Kelurahan / Desa</span>
+                <strong>{{ selected.village || "-" }}</strong>
+              </div>
+              <div class="confirmation-data confirmation-full">
+                <span>Alamat Lengkap</span>
+                <strong>{{ form.alamatLengkap || "-" }}</strong>
+              </div>
+            </div>
+          </div>
+
+          <label class="agreement-box">
+            <input type="checkbox" />
+            <span class="agreement-check">✓</span>
+            <span class="agreement-text">
+              Dengan melanjutkan, saya menyatakan bahwa data yang saya masukkan
+              sudah benar dan menyetujui
+              <a href="#" @click.prevent>syarat & ketentuan</a>
+              penggunaan platform ARUNA.
+            </span>
+          </label>
         </div>
-      </div>
-
-      <button
-        type="button"
-        class="edit-button"
-        @click="ubahDataDiri"
-      >
-        <span>✎</span>
-        Ubah
-      </button>
-    </div>
-
-    <div class="confirmation-divider"></div>
-
-    <div class="confirmation-data-grid">
-
-      <div class="confirmation-data">
-        <span>Nama Lengkap</span>
-        <strong>{{ form.nama || "-" }}</strong>
-      </div>
-
-      <div class="confirmation-data">
-        <span>Alamat Email</span>
-        <strong>{{ form.email || "-" }}</strong>
-      </div>
-
-      <div class="confirmation-data">
-        <span>Nomor Handphone</span>
-        <strong>{{ form.nomorHp || "-" }}</strong>
-      </div>
-
-      <div class="confirmation-data">
-        <span>Tanggal Lahir</span>
-        <strong>{{ tanggalLahirFormatted }}</strong>
-      </div>
-
-      <div class="confirmation-data">
-        <span>Jenis Kelamin</span>
-        <strong>{{ form.jenisKelamin || "-" }}</strong>
-      </div>
-
-    </div>
-  </div>
-
-  <!-- ALAMAT -->
-  <div class="confirmation-card">
-
-    <div class="confirmation-header">
-      <div class="confirmation-title">
-        <div class="confirmation-icon">
-          <svg viewBox="0 0 24 24" fill="none">
-            <path
-              d="M12 21s7-6.2 7-12a7 7 0 1 0-14 0c0 5.8 7 12 7 12Z"
-              stroke="currentColor"
-              stroke-width="1.8"
-            />
-            <circle
-              cx="12"
-              cy="9"
-              r="2.5"
-              stroke="currentColor"
-              stroke-width="1.8"
-            />
-          </svg>
-        </div>
-
-        <div>
-          <h4>Alamat</h4>
-          <p>Informasi alamat Anda</p>
-        </div>
-      </div>
-
-      <button
-        type="button"
-        class="edit-button"
-        @click="ubahAlamat"
-      >
-        <span>✎</span>
-        Ubah
-      </button>
-    </div>
-
-    <div class="confirmation-divider"></div>
-
-    <div class="confirmation-data-grid">
-
-      <div class="confirmation-data">
-        <span>Provinsi</span>
-<strong>{{ selected.province || "-" }}</strong>
-      </div>
-
-      <div class="confirmation-data">
-        <span>Kota / Kabupaten</span>
-        <strong>{{ selected.city || "-" }}</strong>
-      </div>
-
-      <div class="confirmation-data">
-        <span>Kecamatan</span>
-        <strong>{{ selected.district || "-" }}</strong>
-      </div>
-
-      <div class="confirmation-data">
-        <span>Kelurahan / Desa</span>
-        <strong>{{ selected.village || "-" }}</strong>
-      </div>
-
-      <div class="confirmation-data confirmation-full">
-        <span>Alamat Lengkap</span>
-        <strong>{{ form.alamatLengkap || "-" }}</strong>
-      </div>
-
-    </div>
-  </div>
-
-  <!-- PERSETUJUAN -->
-  <label class="agreement-box">
-    <input type="checkbox" />
-
-    <span class="agreement-check">
-      ✓
-    </span>
-
-    <span class="agreement-text">
-      Dengan melanjutkan, saya menyatakan bahwa data yang saya masukkan
-      sudah benar dan menyetujui
-      <a href="#" @click.prevent>syarat & ketentuan</a>
-      penggunaan platform ARUNA.
-    </span>
-  </label>
-
-</div>
 
         <!-- BUTTON -->
-       <!-- BUTTON -->
-<!-- BUTTON -->
-<div class="button-wrapper">
+        <div class="button-wrapper">
+          <button
+            v-if="currentStep === 2 || currentStep === 3"
+            class="back-form-button"
+            type="button"
+            @click="kembali"
+          >
+            <span class="button-arrow">←</span>
+            <span>Kembali</span>
+          </button>
 
-  <!-- BUTTON KEMBALI -->
-  <button
-    v-if="currentStep === 2 || currentStep === 3"
-    class="back-form-button"
-    type="button"
-    @click="kembali"
-  >
-    <span class="button-arrow">←</span>
-    <span>Kembali</span>
-  </button>
+          <button
+            v-if="currentStep === 1"
+            class="continue-button"
+            type="button"
+            @click="lanjutkan"
+          >
+            <span>Lanjutkan</span>
+            <span class="arrow">→</span>
+          </button>
 
-  <!-- STEP 1 -->
-  <button
-    v-if="currentStep === 1"
-    class="continue-button"
-    type="button"
-    @click="lanjutkan"
-  >
-    <span>Lanjutkan</span>
-    <span class="arrow">→</span>
-  </button>
+          <button
+            v-if="currentStep === 2"
+            class="continue-button"
+            type="button"
+            @click="lanjutkan"
+          >
+            <span>Lanjutkan</span>
+            <span class="arrow">→</span>
+          </button>
 
-  <!-- STEP 2 -->
-  <button
-    v-if="currentStep === 2"
-    class="continue-button"
-    type="button"
-    @click="lanjutkan"
-  >
-    <span>Lanjutkan</span>
-    <span class="arrow">→</span>
-  </button>
+          <button
+            v-if="currentStep === 3"
+            class="continue-button"
+            type="button"
+            @click="daftarSekarang"
+          >
+            <span>Daftar Sekarang</span>
+            <span class="arrow">→</span>
+          </button>
+        </div>
 
-  <!-- STEP 3 -->
-  <button
-    v-if="currentStep === 3"
-    class="continue-button"
-    type="button"
-    @click="daftarSekarang"
-  >
-    <span>Daftar Sekarang</span>
-    <span class="arrow">→</span>
-  </button>
+        <!-- POPUP NOMOR HP -->
+        <div
+          v-if="showPhoneError"
+          class="phone-error-overlay"
+          @click.self="closePhoneError"
+        >
+          <div class="phone-error-modal">
+            <button type="button" class="phone-error-close" @click="closePhoneError">×</button>
+            <div class="phone-error-icon">!</div>
+            <h3>Nomor HP Tidak Valid</h3>
+            <p>Nomor HP hanya boleh diisi menggunakan <strong>angka</strong>.</p>
+            <button type="button" class="phone-error-button" @click="closePhoneError">Mengerti</button>
+          </div>
+        </div>
 
-</div>
-
-<!-- POPUP NOMOR HP -->
-<div
-  v-if="showPhoneError"
-  class="phone-error-overlay"
-  @click.self="closePhoneError"
->
-  <div class="phone-error-modal">
-
-    <button
-      type="button"
-      class="phone-error-close"
-      @click="closePhoneError"
-    >
-      ×
-    </button>
-
-    <div class="phone-error-icon">
-      !
-    </div>
-
-    <h3>Nomor HP Tidak Valid</h3>
-
-    <p>
-      Nomor HP hanya boleh diisi menggunakan
-      <strong>angka</strong>.
-    </p>
-
-    <button
-      type="button"
-      class="phone-error-button"
-      @click="closePhoneError"
-    >
-      Mengerti
-    </button>
-
-  </div>
-</div>
-
-<!-- =========================
-     VALIDATION POPUP
-========================== -->
-<div
-  v-if="validationPopup.show"
-  class="validation-overlay"
-  @click.self="closeValidationPopup"
->
-  <div class="validation-popup">
-
-    <button
-      type="button"
-      class="popup-close"
-      @click="closeValidationPopup"
-    >
-      ×
-    </button>
-
-    <div class="popup-icon">
-      <svg viewBox="0 0 24 24" fill="none">
-        <path
-          d="M12 3L21 20H3L12 3Z"
-          stroke="currentColor"
-          stroke-width="1.8"
-          stroke-linejoin="round"
-        />
-        <path
-          d="M12 9V13"
-          stroke="currentColor"
-          stroke-width="1.8"
-          stroke-linecap="round"
-        />
-        <circle
-          cx="12"
-          cy="16.5"
-          r="1"
-          fill="currentColor"
-        />
-      </svg>
-    </div>
-
-    <h3>{{ validationPopup.title }}</h3>
-
-    <p class="popup-message">
-      {{ validationPopup.message }}
-    </p>
-
-    <div
-      v-if="validationPopup.fields.length"
-      class="popup-fields"
-    >
-      <div
-        v-for="field in validationPopup.fields"
-        :key="field"
-        class="popup-field"
-      >
-        <span class="popup-check">!</span>
-        <span>{{ field }}</span>
-      </div>
-    </div>
-
-    <button
-      type="button"
-      class="popup-button"
-      @click="closeValidationPopup"
-    >
-      Oke, Saya Lengkapi
-    </button>
-
-  </div>
-</div>   
+        <!-- VALIDATION POPUP -->
+        <div
+          v-if="validationPopup.show"
+          class="validation-overlay"
+          @click.self="closeValidationPopup"
+        >
+          <div class="validation-popup">
+            <button type="button" class="popup-close" @click="closeValidationPopup">×</button>
+            <div class="popup-icon">
+              <svg viewBox="0 0 24 24" fill="none">
+                <path d="M12 3L21 20H3L12 3Z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" />
+                <path d="M12 9V13" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" />
+                <circle cx="12" cy="16.5" r="1" fill="currentColor" />
+              </svg>
+            </div>
+            <h3>{{ validationPopup.title }}</h3>
+            <p class="popup-message">{{ validationPopup.message }}</p>
+            <div v-if="validationPopup.fields.length" class="popup-fields">
+              <div v-for="field in validationPopup.fields" :key="field" class="popup-field">
+                <span class="popup-check">!</span>
+                <span>{{ field }}</span>
+              </div>
+            </div>
+            <button type="button" class="popup-button" @click="closeValidationPopup">
+              Oke, Saya Lengkapi
+            </button>
+          </div>
+        </div>
 
       </div>
     </section>
@@ -1156,12 +916,7 @@ function closePhoneError() {
   min-height: 100vh;
   display: flex;
   background:
-    radial-gradient(
-      circle at 50% 0%,
-      #d8edff 0%,
-      #eaf6ff 45%,
-      #f5fbff 100%
-    );
+    radial-gradient(circle at 50% 0%, #d8edff 0%, #eaf6ff 45%, #f5fbff 100%);
   font-family: "Poppins", sans-serif;
   color: #0d2752;
   overflow: hidden;
@@ -1172,11 +927,9 @@ function closePhoneError() {
   height: 100%;
   min-width: 0;
   padding: 0 42px 0 5px;
-
   border: none;
   outline: none;
   background: transparent;
-
   font-family: inherit;
   font-size: 14px;
   color: #243d63;
@@ -1194,10 +947,7 @@ function closePhoneError() {
   display: none;
 }
 
-/* =========================
-   LEFT
-========================= */
-
+/* LEFT */
 .left-section {
   width: 41%;
   min-height: 100vh;
@@ -1223,14 +973,6 @@ function closePhoneError() {
   margin: 0 auto;
   position: relative;
   z-index: 2;
-}
-
-.aruna-logo {
-  width: 215px;
-  height: auto;
-  object-fit: contain;
-  object-position: left center;
-  margin-bottom: 54px;
 }
 
 .left-title h1 {
@@ -1269,10 +1011,6 @@ function closePhoneError() {
   object-fit: contain;
   object-position: center bottom;
 }
-
-/* =========================
-   BENEFIT
-========================= */
 
 .benefit-card {
   width: 440px;
@@ -1325,10 +1063,7 @@ function closePhoneError() {
   color: #7187a7;
 }
 
-/* =========================
-   RIGHT
-========================= */
-
+/* RIGHT */
 .right-section {
   width: 59%;
   min-height: 100vh;
@@ -1347,10 +1082,6 @@ function closePhoneError() {
   padding: 42px 50px 48px;
   box-shadow: 0 12px 40px rgba(52, 108, 164, 0.10);
 }
-
-/* =========================
-   TOP
-========================= */
 
 .card-top {
   display: flex;
@@ -1390,10 +1121,6 @@ function closePhoneError() {
   text-decoration: underline;
 }
 
-/* =========================
-   TITLE
-========================= */
-
 .register-title {
   margin-top: 30px;
 }
@@ -1416,10 +1143,6 @@ function closePhoneError() {
   font-size: 16px;
   line-height: 1.4;
 }
-
-/* =========================
-   PROGRESS
-========================= */
 
 .progress-wrapper {
   position: relative;
@@ -1447,13 +1170,8 @@ function closePhoneError() {
   transition: width 0.3s ease;
 }
 
-.progress-active.step-two {
-  width: 50%;
-}
-
-.progress-active.step-three {
-  width: 100%;
-}
+.progress-active.step-two { width: 50%; }
+.progress-active.step-three { width: 100%; }
 
 .progress-step {
   width: 90px;
@@ -1467,9 +1185,7 @@ function closePhoneError() {
   font-weight: 500;
 }
 
-.progress-step.active {
-  color: #0865d8;
-}
+.progress-step.active { color: #0865d8; }
 
 .step-circle {
   width: 50px;
@@ -1488,28 +1204,14 @@ function closePhoneError() {
   color: #fff;
 }
 
-.progress-step.completed {
-  color: #6caef0;
-}
-
+.progress-step.completed { color: #6caef0; }
 .progress-step.completed .step-circle {
   background: #63a9ee;
   color: #fff;
 }
 
-/* =========================
-   FORM
-========================= */
-
-.form-section {
-  margin-top: 20px;
-}
-
-.form-section h3 {
-  margin: 0;
-  font-size: 22px;
-}
-
+.form-section { margin-top: 20px; }
+.form-section h3 { margin: 0; font-size: 22px; }
 .form-description {
   margin: 5px 0 25px;
   color: #91a2ba;
@@ -1532,6 +1234,7 @@ function closePhoneError() {
 }
 
 .input-wrapper {
+  position: relative;
   width: 100%;
   height: 54px;
   border: 1px solid #d8e2ee;
@@ -1576,10 +1279,7 @@ function closePhoneError() {
   font-size: 16px;
 }
 
-.password-group {
-  grid-column: 1 / -1;
-}
-
+.password-group { grid-column: 1 / -1; }
 .password-group small {
   display: block;
   margin-top: 7px;
@@ -1587,14 +1287,8 @@ function closePhoneError() {
   font-size: 12px;
 }
 
-/* =========================
-   GENDER
-========================= */
-
-.gender-group {
-  grid-column: 1 / -1;
-}
-
+/* GENDER */
+.gender-group { grid-column: 1 / -1; }
 .gender-options {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -1622,18 +1316,9 @@ function closePhoneError() {
   box-shadow: 0 0 0 1px #0865d8;
 }
 
-.gender-symbol {
-  font-size: 31px;
-  width: 28px;
-}
-
-.gender-symbol.male {
-  color: #0865d8;
-}
-
-.gender-symbol.female {
-  color: #f04c70;
-}
+.gender-symbol { font-size: 31px; width: 28px; }
+.gender-symbol.male { color: #0865d8; }
+.gender-symbol.female { color: #f04c70; }
 
 .radio {
   width: 22px;
@@ -1644,9 +1329,7 @@ function closePhoneError() {
   position: relative;
 }
 
-.gender-option.selected .radio {
-  border-color: #0865d8;
-}
+.gender-option.selected .radio { border-color: #0865d8; }
 
 .gender-option.selected .radio::after {
   content: "";
@@ -1659,19 +1342,12 @@ function closePhoneError() {
   top: 4px;
 }
 
-/* =========================
-   ADDRESS FORM
-========================= */
-
-.address-section {
-  margin-top: 20px;
-}
-
+/* ADDRESS FORM */
+.address-section { margin-top: 20px; }
 .address-form-group {
   width: 100%;
   margin-bottom: 18px;
 }
-
 .address-form-group label {
   display: block;
   margin-bottom: 8px;
@@ -1684,15 +1360,11 @@ function closePhoneError() {
   position: relative;
   width: 100%;
   height: 54px;
-
   border: 1px solid #d8e2ee;
   border-radius: 11px;
-
   background: #fff;
-
   display: flex;
   align-items: center;
-
   transition: 0.2s ease;
 }
 
@@ -1704,74 +1376,51 @@ function closePhoneError() {
 .address-icon {
   width: 42px;
   min-width: 42px;
-
   display: flex;
   align-items: center;
   justify-content: center;
-
   color: #8095b3;
 }
 
-.address-icon svg {
-  width: 22px;
-  height: 22px;
-}
+.address-icon svg { width: 22px; height: 22px; }
 
 .select-wrapper select {
   width: 100%;
   height: 100%;
-
   padding: 0 42px 0 5px;
-
   border: none;
   outline: none;
-
   background: transparent;
-
   appearance: none;
-
   font-family: inherit;
   font-size: 14px;
   color: #243d63;
-
   cursor: pointer;
 }
 
-.select-wrapper select:invalid {
-  color: #9aabc0;
-}
+.select-wrapper select:invalid { color: #9aabc0; }
 
 .select-wrapper::after {
   content: "⌄";
-
   position: absolute;
   right: 18px;
   top: 50%;
-
   transform: translateY(-55%);
-
   color: #6f89ad;
   font-size: 23px;
-
   pointer-events: none;
 }
 
 .textarea-wrapper {
   position: relative;
-
   width: 100%;
   min-height: 90px;
-
   border: 1px solid #d8e2ee;
   border-radius: 11px;
-
   background: #fff;
-
   display: flex;
   align-items: flex-start;
-
   padding-top: 14px;
-
   transition: 0.2s ease;
 }
 
@@ -1783,48 +1432,30 @@ function closePhoneError() {
 .textarea-wrapper textarea {
   width: 100%;
   min-height: 75px;
-
   resize: none;
-
   border: none;
   outline: none;
-
   padding: 0 15px 25px 5px;
-
   font-family: inherit;
   font-size: 14px;
   line-height: 1.5;
-
   color: #243d63;
-
   background: transparent;
 }
 
-.textarea-wrapper textarea::placeholder {
-  color: #9aabc0;
-}
+.textarea-wrapper textarea::placeholder { color: #9aabc0; }
 
 .address-counter {
   position: absolute;
   right: 10px;
   bottom: 7px;
-
   color: #8295b1;
-
   font-size: 11px;
 }
 
-/* =========================
-   CONFIRMATION
-========================= */
-
-.confirmation-section {
-  margin-top: 20px;
-}
-
-.confirmation-section .form-description {
-  margin-bottom: 15px;
-}
+/* CONFIRMATION */
+.confirmation-section { margin-top: 20px; }
+.confirmation-section .form-description { margin-bottom: 15px; }
 
 .confirmation-card {
   width: 100%;
@@ -1854,16 +1485,12 @@ function closePhoneError() {
   border-radius: 50%;
   background: #e8f2ff;
   color: #0865d8;
-
   display: flex;
   align-items: center;
   justify-content: center;
 }
 
-.confirmation-icon svg {
-  width: 24px;
-  height: 24px;
-}
+.confirmation-icon svg { width: 24px; height: 24px; }
 
 .confirmation-title h4 {
   margin: 0 0 2px;
@@ -1882,25 +1509,17 @@ function closePhoneError() {
   border: none;
   background: transparent;
   color: #0865d8;
-
   font-family: inherit;
   font-size: 14px;
   font-weight: 600;
-
   display: flex;
   align-items: center;
   gap: 7px;
-
   cursor: pointer;
 }
 
-.edit-button span {
-  font-size: 22px;
-}
-
-.edit-button:hover {
-  color: #0758bf;
-}
+.edit-button span { font-size: 22px; }
+.edit-button:hover { color: #0758bf; }
 
 .confirmation-divider {
   height: 1px;
@@ -1941,16 +1560,12 @@ function closePhoneError() {
 .agreement-box {
   width: 100%;
   min-height: 58px;
-
   display: flex;
   align-items: center;
   gap: 13px;
-
   padding: 11px 15px;
-
   border-radius: 12px;
   background: #eaf3ff;
-
   cursor: pointer;
 }
 
@@ -1964,15 +1579,12 @@ function closePhoneError() {
   width: 30px;
   height: 30px;
   min-width: 30px;
-
   border-radius: 50%;
   background: #0865d8;
   color: #fff;
-
   display: flex;
   align-items: center;
   justify-content: center;
-
   font-size: 17px;
   font-weight: 700;
 }
@@ -1989,47 +1601,31 @@ function closePhoneError() {
   text-decoration: underline;
 }
 
-/* =========================
-   ADDRESS BUTTONS
-========================= */
-
+/* BUTTONS */
 .back-form-button {
   width: 295px;
   height: 68px;
-
   border: none;
   border-radius: 15px;
-
   background: #e4efff;
   color: #0865d8;
-
   font-family: inherit;
   font-size: 17px;
   font-weight: 600;
-
   cursor: pointer;
-
   display: flex;
   align-items: center;
   justify-content: center;
-
   gap: 20px;
-
   transition: 0.2s ease;
 }
 
-.back-form-button:hover {
-  background: #d7e8ff;
-}
+.back-form-button:hover { background: #d7e8ff; }
 
 .button-arrow {
   font-size: 28px;
   font-weight: 400;
 }
-
-/* =========================
-   BUTTON
-========================= */
 
 .button-wrapper {
   display: flex;
@@ -2057,340 +1653,217 @@ function closePhoneError() {
   transition: 0.2s ease;
 }
 
-.back-form-button {
-  width: 100%;
-}
-
-.button-wrapper {
-  flex-direction: column-reverse;
-}
-
+.back-form-button { width: 100%; }
+.button-wrapper { flex-direction: column-reverse; }
 .back-form-button,
-.continue-button {
+.continue-button { width: 100%; }
+.continue-button:hover { background: #0758bf; }
+.arrow { font-size: 28px; font-weight: 400; }
+
+/* OTP */
+.phone-row {
+  display: flex;
+  gap: 8px;
+  align-items: stretch;
   width: 100%;
 }
 
-.continue-button:hover {
-  background: #0758bf;
+.phone-row .input-wrapper {
+  flex: 1;
+  min-width: 0;
+  position: relative;
 }
 
-.arrow {
-  font-size: 28px;
-  font-weight: 400;
+.verified-badge {
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  align-items: center;
+  pointer-events: none;
 }
 
-/* =========================
-   RESPONSIVE
-========================= */
-
-@media (max-width: 1100px) {
-  .left-section {
-    width: 38%;
-    padding-left: 35px;
-  }
-
-  .right-section {
-    width: 62%;
-    padding-right: 30px;
-  }
-
-  .left-title h1 {
-    font-size: 35px;
-  }
-
-  .left-title p {
-    width: 100%;
-  }
-
-  .benefit-card {
-    width: 100%;
-  }
-
-  .register-card {
-    padding: 35px 35px 40px;
-  }
+.verify-phone-btn {
+  flex-shrink: 0;
+  padding: 0 16px;
+  border: 1.5px solid #0865d8;
+  border-radius: 11px;
+  background: #fff;
+  color: #0865d8;
+  font-family: inherit;
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: 0.2s ease;
 }
 
-@media (max-width: 850px) {
-  .customer-register-page {
-    flex-direction: column;
-    overflow: visible;
-  }
-
-  .left-section,
-  .right-section {
-    width: 100%;
-    min-height: auto;
-  }
-
-  .left-section {
-    padding: 30px;
-  }
-
-  .right-section {
-    padding: 20px 30px 40px;
-  }
-
-  .register-card {
-    min-height: auto;
-  }
+.verify-phone-btn:hover:not(:disabled) { background: #eaf3ff; }
+.verify-phone-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  border-color: #b1c0d4;
+  color: #b1c0d4;
 }
 
-@media (max-width: 600px) {
-  .left-section {
-    padding: 25px 20px;
-  }
-
-  .right-section {
-    padding: 10px 15px 30px;
-  }
-
-  .register-card {
-    padding: 25px 20px 30px;
-    border-radius: 20px;
-  }
-
-  .register-title h2 {
-    font-size: 29px;
-  }
-
-  .form-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .gender-group,
-  .password-group {
-    grid-column: auto;
-  }
-
-  .gender-options {
-    grid-template-columns: 1fr;
-  }
-
-  .continue-button {
-    width: 100%;
-  }
-
-  .login-text {
-    font-size: 11px;
-  }
-
-.confirmation-data-grid {
-  grid-template-columns: 1fr;
+.verify-phone-btn.solid {
+  background: #0865d8;
+  color: #fff;
+  border-color: #0865d8;
+}
+.verify-phone-btn.solid:hover:not(:disabled) { background: #0754b5; }
+.verify-phone-btn.solid:disabled {
+  background: #b1c0d4;
+  border-color: #b1c0d4;
+  color: #fff;
 }
 
-.confirmation-full {
-  grid-column: auto;
+.phone-hint {
+  display: block;
+  margin-top: 6px;
+  color: #8298b2;
+  font-size: 11px;
+  line-height: 1.4;
 }
+.phone-hint strong { color: #102b56; font-weight: 600; }
 
-.confirmation-card {
-  padding: 12px;
-}
-
-.confirmation-title {
-  gap: 9px;
-}
-
-.confirmation-title h4 {
-  font-size: 15px;
-}
-
-.edit-button {
+.otp-error {
+  grid-column: 1 / -1;
+  margin: -8px 0 8px;
+  padding: 10px 14px;
+  border-radius: 9px;
+  background: #fff4f4;
+  border: 1px solid #fde0e0;
+  color: #dc2626;
   font-size: 12px;
+  line-height: 1.5;
 }
 
-}
-
-/* ================================
-   POPUP NOMOR HP
-================================ */
-
+/* PHONE ERROR POPUP */
 .phone-error-overlay {
   position: fixed;
   inset: 0;
   z-index: 9999;
-
   display: flex;
   align-items: center;
   justify-content: center;
-
   padding: 20px;
-
   background: rgba(20, 45, 78, 0.42);
   backdrop-filter: blur(5px);
 }
 
 .phone-error-modal {
   position: relative;
-
   width: min(380px, 92vw);
-
   padding: 32px 28px 26px;
-
   background: #ffffff;
-
   border: 1px solid #e2ecf8;
   border-radius: 22px;
-
   text-align: center;
-
   box-shadow:
     0 25px 70px rgba(20, 65, 110, 0.22),
     0 8px 25px rgba(20, 65, 110, 0.1);
-
   animation: phoneErrorShow 0.22s ease-out;
 }
 
 @keyframes phoneErrorShow {
-  from {
-    opacity: 0;
-    transform: translateY(15px) scale(0.96);
-  }
-
-  to {
-    opacity: 1;
-    transform: translateY(0) scale(1);
-  }
+  from { opacity: 0; transform: translateY(15px) scale(0.96); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
 }
 
 .phone-error-close {
   position: absolute;
-
   top: 13px;
   right: 14px;
-
   width: 30px;
   height: 30px;
-
   border: none;
   border-radius: 50%;
-
   background: #f3f7fc;
   color: #7890ad;
-
   font-size: 21px;
-
   display: flex;
   align-items: center;
   justify-content: center;
-
   cursor: pointer;
-
   transition: 0.2s ease;
 }
 
-.phone-error-close:hover {
-  background: #e8f1fb;
-  color: #0865d8;
-}
+.phone-error-close:hover { background: #e8f1fb; color: #0865d8; }
 
 .phone-error-icon {
   width: 58px;
   height: 58px;
-
   margin: 0 auto 15px;
-
   border-radius: 50%;
-
   display: flex;
   align-items: center;
   justify-content: center;
-
   background: #fff4df;
-
   color: #f5a623;
-
   font-size: 30px;
   font-weight: 800;
-
   box-shadow: 0 8px 20px rgba(245, 166, 35, 0.12);
 }
 
 .phone-error-modal h3 {
   margin: 0 0 8px;
-
   color: #142d4e;
-
   font-size: 19px;
   font-weight: 700;
 }
 
 .phone-error-modal p {
   margin: 0 auto 22px;
-
   max-width: 280px;
-
   color: #7186a1;
-
   font-size: 12px;
   line-height: 1.6;
 }
 
-.phone-error-modal p strong {
-  color: #0865d8;
-  font-weight: 700;
-}
+.phone-error-modal p strong { color: #0865d8; font-weight: 700; }
 
 .phone-error-button {
   width: 100%;
   height: 42px;
-
   border: none;
   border-radius: 9px;
-
   background: #0865d8;
   color: #ffffff;
-
   font-size: 12px;
   font-weight: 600;
-
   cursor: pointer;
-
   box-shadow: 0 7px 18px rgba(8, 101, 216, 0.18);
-
   transition: 0.2s ease;
 }
 
-.phone-error-button:hover {
-  background: #0754b5;
-}
+.phone-error-button:hover { background: #0754b5; }
 
-/* =========================
-   VALIDATION POPUP
-========================= */
-
+/* VALIDATION POPUP */
 .validation-overlay {
   position: fixed;
   inset: 0;
   z-index: 9999;
-
   display: flex;
   align-items: center;
   justify-content: center;
-
   padding: 20px;
-
   background: rgba(16, 43, 80, 0.35);
   backdrop-filter: blur(5px);
-
   animation: popupOverlay 0.2s ease;
 }
 
 .validation-popup {
   position: relative;
-
   width: min(430px, 100%);
   padding: 34px 32px 30px;
-
   border-radius: 24px;
   background: #ffffff;
-
   text-align: center;
-
   box-shadow:
     0 25px 70px rgba(8, 101, 216, 0.18),
     0 8px 25px rgba(16, 43, 80, 0.08);
-
   animation: popupShow 0.25s ease;
 }
 
@@ -2398,66 +1871,45 @@ function closePhoneError() {
   position: absolute;
   top: 14px;
   right: 16px;
-
   width: 32px;
   height: 32px;
-
   display: grid;
   place-items: center;
-
   border: 0;
   border-radius: 50%;
-
   background: #f3f7fc;
   color: #7d91ad;
-
   font-size: 22px;
   line-height: 1;
-
   cursor: pointer;
-
   transition: 0.2s ease;
 }
 
-.popup-close:hover {
-  background: #e8f2ff;
-  color: #0865d8;
-}
+.popup-close:hover { background: #e8f2ff; color: #0865d8; }
 
 .popup-icon {
   width: 68px;
   height: 68px;
-
   margin: 0 auto 18px;
-
   display: grid;
   place-items: center;
-
   border-radius: 50%;
-
   background: #eaf4ff;
   color: #0865d8;
 }
 
-.popup-icon svg {
-  width: 34px;
-  height: 34px;
-}
+.popup-icon svg { width: 34px; height: 34px; }
 
 .validation-popup h3 {
   margin: 0;
-
   color: #102b50;
-
   font-size: 21px;
   font-weight: 700;
 }
 
 .popup-message {
   margin: 8px auto 20px;
-
   color: #7d91ad;
-
   font-size: 13px;
   line-height: 1.5;
 }
@@ -2466,14 +1918,10 @@ function closePhoneError() {
   display: flex;
   flex-direction: column;
   gap: 9px;
-
   margin-bottom: 22px;
   padding: 14px;
-
   border-radius: 13px;
-
   background: #f7fbff;
-
   text-align: left;
 }
 
@@ -2481,9 +1929,7 @@ function closePhoneError() {
   display: flex;
   align-items: center;
   gap: 9px;
-
   color: #526b88;
-
   font-size: 12px;
   font-weight: 500;
 }
@@ -2491,17 +1937,12 @@ function closePhoneError() {
 .popup-check {
   width: 20px;
   height: 20px;
-
   flex: 0 0 20px;
-
   display: grid;
   place-items: center;
-
   border-radius: 50%;
-
   background: #e4f1ff;
   color: #0865d8;
-
   font-size: 11px;
   font-weight: 700;
 }
@@ -2509,19 +1950,14 @@ function closePhoneError() {
 .popup-button {
   width: 100%;
   min-height: 48px;
-
   border: 0;
   border-radius: 10px;
-
   background: #0865d8;
   color: #fff;
-
   font-family: inherit;
   font-size: 13px;
   font-weight: 600;
-
   cursor: pointer;
-
   transition: 0.2s ease;
 }
 
@@ -2531,25 +1967,50 @@ function closePhoneError() {
 }
 
 @keyframes popupShow {
-  from {
-    opacity: 0;
-    transform: translateY(12px) scale(0.96);
-  }
-
-  to {
-    opacity: 1;
-    transform: translateY(0) scale(1);
-  }
+  from { opacity: 0; transform: translateY(12px) scale(0.96); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
 }
 
 @keyframes popupOverlay {
-  from {
-    opacity: 0;
-  }
-
-  to {
-    opacity: 1;
-  }
+  from { opacity: 0; }
+  to   { opacity: 1; }
 }
 
+/* RESPONSIVE */
+@media (max-width: 1100px) {
+  .left-section { width: 38%; padding-left: 35px; }
+  .right-section { width: 62%; padding-right: 30px; }
+  .left-title h1 { font-size: 35px; }
+  .left-title p { width: 100%; }
+  .benefit-card { width: 100%; }
+  .register-card { padding: 35px 35px 40px; }
+}
+
+@media (max-width: 850px) {
+  .customer-register-page { flex-direction: column; overflow: visible; }
+  .left-section,
+  .right-section { width: 100%; min-height: auto; }
+  .left-section { padding: 30px; }
+  .right-section { padding: 20px 30px 40px; }
+  .register-card { min-height: auto; }
+}
+
+@media (max-width: 600px) {
+  .left-section { padding: 25px 20px; }
+  .right-section { padding: 10px 15px 30px; }
+  .register-card { padding: 25px 20px 30px; border-radius: 20px; }
+  .register-title h2 { font-size: 29px; }
+  .form-grid { grid-template-columns: 1fr; }
+  .gender-group,
+  .password-group { grid-column: auto; }
+  .gender-options { grid-template-columns: 1fr; }
+  .continue-button { width: 100%; }
+  .login-text { font-size: 11px; }
+  .confirmation-data-grid { grid-template-columns: 1fr; }
+  .confirmation-full { grid-column: auto; }
+  .confirmation-card { padding: 12px; }
+  .confirmation-title { gap: 9px; }
+  .confirmation-title h4 { font-size: 15px; }
+  .edit-button { font-size: 12px; }
+}
 </style>

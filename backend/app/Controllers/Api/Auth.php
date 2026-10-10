@@ -102,6 +102,32 @@ class Auth extends BaseApi
             return $this->galat('Email sudah terdaftar.', 409);
         }
 
+        // Cek nomor HP duplikat
+if ($phone !== '') {
+    $otpSvc = new OtpService();
+    $canon  = $otpSvc->normalizePhone($phone);
+
+    if ($canon) {
+        $digits = ltrim($canon, '+');            // 62852...
+        $lokal  = '0' . substr($digits, 2);      // 0852...
+
+        $sudahDipakai = $this->db->table('users')
+            ->groupStart()
+                ->where('no_hp', $canon)
+                ->orWhere('no_hp', $digits)
+                ->orWhere('no_hp', $lokal)
+            ->groupEnd()
+            ->countAllResults();
+
+        if ($sudahDipakai > 0) {
+            return $this->galat('Nomor HP sudah terdaftar. Silakan login atau gunakan nomor lain.', 409);
+        }
+
+        // simpan versi kanonik ke DB
+        $phone = $canon;
+    }
+}
+
         $tokoKeys = ['namaToko', 'nama_toko', 'shopName', 'kategori', 'category', 'kategoriUsaha',
             'provinsi', 'kota', 'kecamatan', 'alamat', 'whatsapp', 'deskripsi'];
         $extra = $this->sisaanExtra($d, $peran === 'penjual' ? $tokoKeys : []);
@@ -349,35 +375,39 @@ class Auth extends BaseApi
             ->update(['used_at' => date('Y-m-d H:i:s')]);
 
         // Cek apakah nomor sudah terdaftar
-        $digits = ltrim($canon, '+');              // 62812...
-        $lokal  = '0' . substr($digits, 2);        // 0812...
-        $user   = $this->db->table('users')
-            ->groupStart()
-                ->where('no_hp', $canon)
-                ->orWhere('no_hp', $digits)
-                ->orWhere('no_hp', $lokal)
-            ->groupEnd()
-            ->get(1)->getRowArray();
+$digits = ltrim($canon, '+');
+$lokal  = '0' . substr($digits, 2);
+$user   = $this->db->table('users')
+    ->groupStart()
+        ->where('no_hp', $canon)
+        ->orWhere('no_hp', $digits)
+        ->orWhere('no_hp', $lokal)
+    ->groupEnd()
+    ->get(1)->getRowArray();
 
-        if (! $user) {
-            // Nomor belum terdaftar → kasih sinyal ke frontend
-            return $this->respond([
-                'status'     => true,
-                'registered' => false,
-                'message'    => 'Nomor terverifikasi. Silakan lengkapi pendaftaran.',
-                'phone'      => $canon,
-            ]);
-        }
+// Kalau tujuan=register dan nomor sudah terdaftar → tolak
+if ($tujuan === 'register' && $user) {
+    return $this->galat('Nomor HP sudah terdaftar. Silakan login atau gunakan nomor lain.', 409);
+}
 
-        if ($user['status'] !== 'aktif') {
-            return $this->galat('Akun ini diblokir. Hubungi admin ARUNA.', 403);
-        }
+if (! $user) {
+    return $this->respond([
+        'status'     => true,
+        'registered' => false,
+        'message'    => 'Nomor terverifikasi. Silakan lengkapi pendaftaran.',
+        'phone'      => $canon,
+    ]);
+}
 
-        return $this->respond([
-            'status'     => true,
-            'registered' => true,
-            'token'      => Jwt::encode(['sub' => (int) $user['id'], 'role' => $user['peran']]),
-            'user'       => $this->formatUser($user),
-        ]);
+if ($user['status'] !== 'aktif') {
+    return $this->galat('Akun ini diblokir. Hubungi admin ARUNA.', 403);
+}
+
+return $this->respond([
+    'status'     => true,
+    'registered' => true,
+    'token'      => Jwt::encode(['sub' => (int) $user['id'], 'role' => $user['peran']]),
+    'user'       => $this->formatUser($user),
+]);
     }
 }

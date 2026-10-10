@@ -249,19 +249,14 @@ onBeforeUnmount(() => {
   <!-- HALAMAN LOGIN -->
   <main v-if="!isLoading" class="login-page">
     <div class="login-card">
-      <!-- =========================
-           HEADER — GAMBAR FULL + TEKS OVERLAY
-      ========================== -->
+      <!-- HEADER — GAMBAR FULL + TEKS OVERLAY -->
       <header class="card-header">
-        <!-- GAMBAR FULL -->
         <div class="hero-image">
           <img src="/images/OTP.png" alt="Ilustrasi ARUNA" />
         </div>
 
-        <!-- OVERLAY GELAP DI BAWAH GAMBAR -->
         <div class="hero-overlay" aria-hidden="true"></div>
 
-        <!-- NAV TOMBOL WARNA JELAS -->
         <nav class="top-nav" aria-label="Navigasi">
           <button
             type="button"
@@ -307,7 +302,6 @@ onBeforeUnmount(() => {
           </button>
         </nav>
 
-        <!-- JUDUL DITIMPA DI ATAS GAMBAR -->
         <div class="hero-title">
           <h1>Masuk</h1>
           <p>Selamat datang kembali di ARUNA</p>
@@ -724,7 +718,6 @@ onBeforeUnmount(() => {
   background: linear-gradient(135deg, #0a4fb0 0%, #0865d8 100%);
 }
 
-/* GAMBAR FULL — object-fit cover, tidak terpotong di tengah */
 .hero-image {
   position: absolute;
   inset: 0;
@@ -740,7 +733,6 @@ onBeforeUnmount(() => {
   display: block;
 }
 
-/* OVERLAY GELAP DI BAWAH GAMBAR (agar teks jelas) */
 .hero-overlay {
   position: absolute;
   inset: 0;
@@ -754,7 +746,7 @@ onBeforeUnmount(() => {
   z-index: 1;
 }
 
-/* NAV TOMBOL WARNA JELAS */
+/* NAV TOMBOL */
 .top-nav {
   position: absolute;
   top: 16px;
@@ -792,7 +784,6 @@ onBeforeUnmount(() => {
   flex-shrink: 0;
 }
 
-/* KEMBALI — PUTIH SOLID */
 .back-btn {
   background: #ffffff;
   color: #0d2051;
@@ -804,7 +795,6 @@ onBeforeUnmount(() => {
   box-shadow: 0 10px 22px rgba(12, 35, 80, 0.3);
 }
 
-/* DAFTAR — BIRU SOLID */
 .register-btn {
   background: #0865d8;
   color: #ffffff;
@@ -816,7 +806,6 @@ onBeforeUnmount(() => {
   box-shadow: 0 10px 22px rgba(8, 101, 216, 0.45);
 }
 
-/* JUDUL DITIMPA DI ATAS GAMBAR */
 .hero-title {
   position: absolute;
   left: 0;
@@ -1051,7 +1040,6 @@ onBeforeUnmount(() => {
   white-space: nowrap;
 }
 
-/* ICON */
 .action-icon {
   display: grid;
   place-items: center;
@@ -1074,10 +1062,7 @@ onBeforeUnmount(() => {
   font-weight: 800;
 }
 
-/* =========================
-   TOMBOL KIRIM ULANG (BIRU)
-========================= */
-
+/* TOMBOL KIRIM ULANG */
 .resend-btn {
   border: 1.5px solid #cfe2f7;
   background: #eff6ff;
@@ -1104,7 +1089,6 @@ onBeforeUnmount(() => {
   }
 }
 
-/* STATE COOLDOWN (ABU) */
 .resend-btn.cooling {
   border-color: #e2e8f0;
   background: #f7fafc;
@@ -1117,10 +1101,7 @@ onBeforeUnmount(() => {
   color: #b8c6d9;
 }
 
-/* =========================
-   TOMBOL GANTI NOMOR (OUTLINE)
-========================= */
-
+/* TOMBOL GANTI NOMOR */
 .change-btn {
   border: 1.5px solid #e0eaf6;
   background: #ffffff;
@@ -1150,23 +1131,8 @@ onBeforeUnmount(() => {
 }
 
 /* =========================
-   RESPONSIVE — MOBILE KECIL
+   ERROR
 ========================= */
-
-@media (max-width: 380px) {
-  .otp-actions {
-    grid-template-columns: 1fr;
-    gap: 8px;
-  }
-
-  .otp-action-btn {
-    height: 42px;
-    font-size: 12px;
-  }
-}
-.otp-sep {
-  color: #c8d5e5;
-}
 
 .form-error {
   display: flex;
@@ -1187,6 +1153,10 @@ onBeforeUnmount(() => {
   width: 20px;
   height: 20px;
 }
+
+/* =========================
+   SUBMIT
+========================= */
 
 .login-submit {
   width: 100%;
@@ -1381,7 +1351,6 @@ onBeforeUnmount(() => {
   box-shadow: 0 30px 70px rgba(12, 35, 80, 0.3);
 }
 
-/* CENTANG ANIMASI */
 .welcome-check {
   width: 88px;
   height: 88px;
@@ -1879,6 +1848,18 @@ onBeforeUnmount(() => {
   }
 }
 
+@media (max-width: 380px) {
+  .otp-actions {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+
+  .otp-action-btn {
+    height: 42px;
+    font-size: 12px;
+  }
+}
+
 @media (max-width: 360px) {
   .login-page {
     padding: 14px 10px;
@@ -1964,7 +1945,6 @@ onBeforeUnmount(() => {
   }
 }
 
-/* Pastikan tidak overflow di zoom besar */
 @media (min-width: 1400px) {
   .login-card {
     max-width: 440px;
