@@ -1,65 +1,42 @@
 import { createRouter, createWebHistory } from "vue-router";
 
-// =========================
-// IMPORT HALAMAN PUBLIC
-// =========================
 import HomePage from "@/views/HomePage.vue";
 import ProdukPage from "@/views/ProdukPage.vue";
 import ArticlePage from "@/views/ArticlePage.vue";
 import NotFoundPage from "@/views/NotFoundPage.vue";
+import RegisterPage from "@/views/RegisterPage.vue";
+import CustomerRegisterPage from "@/views/CustomerRegisterPage.vue";
+import LoginPage from "@/views/LoginPage.vue";
+import ProfilePage from "@/views/ProfilePage.vue";
+import CheckoutPage from "@/views/CheckoutPage.vue";
 import ProdukDetailPage from "@/views/ProdukDetailPage.vue";
 import UmkmDetailPage from "@/views/UmkmDetailPage.vue";
 import JasaDetailPage from "@/views/JasaDetailPage.vue";
 
-// =========================
-// IMPORT HALAMAN AUTH
-// =========================
-import RegisterPage from "@/views/RegisterPage.vue";
-import CustomerRegisterPage from "@/views/CustomerRegisterPage.vue";
-import CustomerVerifyPhonePage from "@/views/CustomerVerifyPhonePage.vue";
-import LoginPage from "@/views/LoginPage.vue";
-
-// =========================
-// IMPORT HALAMAN CUSTOMER
-// =========================
-import ProfilePage from "@/views/ProfilePage.vue";
-import CheckoutPage from "@/views/CheckoutPage.vue";
-
-// =========================
-// IMPORT HALAMAN PENJUAL
-// =========================
-import PenjualLayout from "@/layouts/PenjualLayout.vue";
-import PenjualDashboard from "@/views/penjual/DashboardPage.vue";
-import PenjualProduk from "@/views/penjual/ProdukPage.vue";
-import PenjualPesanan from "@/views/penjual/PesananPage.vue";
-import PenjualProfil from "@/views/penjual/ProfilTokoPage.vue";
-
-// =========================
-// IMPORT SERVICES & AUTH
-// =========================
 import { katalog } from "@/services/api";
 import { jasaList } from "@/data/jasa";
 import { useAuth } from "@/composables/useAuth";
 import { adminRoutes, installAdminGuard } from "./adminRoutes";
+import CustomerVerifyPhonePage from "@/views/CustomerVerifyPhonePage.vue";
 
 // =========================
-// HELPER: CEK DATA SERVER
+// HELPER: cek data ada di server
 // =========================
-// true  = data tersedia
-// false = server mengembalikan 404
-// Error jaringan tetap membuka halaman
+// true  = data ada
+// 404   = data tidak ditemukan
+// Error jaringan dianggap ada agar halaman tetap terbuka
 async function adaDiServer(ambil) {
   try {
     await ambil();
     return true;
   } catch (error) {
-    const status = error?.response?.status ?? error?.status;
+    const status = error.response ? error.response.status : error.status;
     return status !== 404;
   }
 }
 
 // =========================
-// HELPER: REDIRECT KE 404
+// HELPER: redirect ke 404
 // =========================
 function keNotFound(to) {
   return {
@@ -73,23 +50,13 @@ function keNotFound(to) {
 }
 
 // =========================
-// HELPER: CEK LOGIN
+// HELPER: cek user sudah login
 // =========================
-function isUserLoggedIn() {
-  const { isLoggedIn } = useAuth();
-  return isLoggedIn.value;
+function isLoggedIn() {
+  const { user } = useAuth();
+  return !!user?.value;
 }
 
-// =========================
-// HELPER: GUEST GUARD
-// =========================
-function guestGuard() {
-  return isUserLoggedIn() ? { name: "home" } : true;
-}
-
-// =========================
-// CREATE ROUTER
-// =========================
 const router = createRouter({
   history: createWebHistory(),
 
@@ -119,10 +86,9 @@ const router = createRouter({
       path: "/produk/:id",
       name: "produk-detail",
       component: ProdukDetailPage,
-      meta: { title: "Detail Produk — ARUNA" },
       beforeEnter: async (to) => {
         const exists = await adaDiServer(() =>
-          katalog.produkDetail(to.params.id)
+          katalog.produkDetail(to.params.id),
         );
         return exists ? true : keNotFound(to);
       },
@@ -133,10 +99,9 @@ const router = createRouter({
       path: "/jasa/:id",
       name: "service",
       component: JasaDetailPage,
-      meta: { title: "Detail Jasa — ARUNA" },
       beforeEnter: (to) => {
         const exists = jasaList.some(
-          (j) => String(j.id) === String(to.params.id)
+          (j) => String(j.id) === String(to.params.id),
         );
         return exists ? true : keNotFound(to);
       },
@@ -147,7 +112,6 @@ const router = createRouter({
       path: "/umkm/:id",
       name: "umkm-detail",
       component: UmkmDetailPage,
-      meta: { title: "Detail UMKM — ARUNA" },
     },
 
     // DETAIL ARTIKEL
@@ -155,35 +119,12 @@ const router = createRouter({
       path: "/artikel/:id",
       name: "article",
       component: ArticlePage,
-      meta: { title: "Artikel — ARUNA" },
       beforeEnter: async (to) => {
         const exists = await adaDiServer(() =>
-          katalog.artikelDetail(to.params.id)
+          katalog.artikelDetail(to.params.id),
         );
         return exists ? true : keNotFound(to);
       },
-    },
-
-    // =========================
-    // AUTH ROUTES
-    // =========================
-
-    // REGISTER
-    {
-      path: "/register",
-      name: "register",
-      component: RegisterPage,
-      meta: { bare: true, title: "Daftar — ARUNA" },
-      beforeEnter: guestGuard,
-    },
-
-    // REGISTER CUSTOMER
-    {
-      path: "/register/customer",
-      name: "customer-register",
-      component: CustomerRegisterPage,
-      meta: { bare: true, title: "Daftar Pelanggan — ARUNA" },
-      beforeEnter: guestGuard,
     },
 
     // VERIFIKASI NOMOR CUSTOMER
@@ -192,7 +133,29 @@ const router = createRouter({
       name: "customer-verify-phone",
       component: CustomerVerifyPhonePage,
       meta: { bare: true, title: "Verifikasi Nomor — ARUNA" },
-      beforeEnter: guestGuard,
+      beforeEnter: () => (isLoggedIn() ? { name: "home" } : true),
+    },
+
+    // =========================
+    // AUTH ROUTES (bare layout)
+    // =========================
+
+    // REGISTER
+    {
+      path: "/register",
+      name: "register",
+      component: RegisterPage,
+      meta: { bare: true, title: "Daftar — ARUNA" },
+      beforeEnter: () => (isLoggedIn() ? { name: "home" } : true),
+    },
+
+    // REGISTER CUSTOMER
+    {
+      path: "/register/customer",
+      name: "customer-register",
+      component: CustomerRegisterPage,
+      meta: { bare: true, title: "Daftar Pelanggan — ARUNA" },
+      beforeEnter: () => (isLoggedIn() ? { name: "home" } : true),
     },
 
     // LOGIN
@@ -201,14 +164,14 @@ const router = createRouter({
       name: "login",
       component: LoginPage,
       meta: { bare: true, title: "Masuk — ARUNA" },
-      beforeEnter: guestGuard,
+      beforeEnter: () => (isLoggedIn() ? { name: "home" } : true),
     },
 
     // =========================
-    // PROTECTED CUSTOMER ROUTES
+    // PROTECTED ROUTES (perlu login)
     // =========================
 
-    // PROFIL CUSTOMER
+    // PROFIL
     {
       path: "/profil",
       name: "profile",
@@ -241,47 +204,12 @@ const router = createRouter({
     },
 
     // =========================
-    // PENJUAL ROUTES
-    // =========================
-    {
-      path: "/penjual",
-      component: PenjualLayout,
-      meta: { requiresAuth: true, role: "penjual" },
-      children: [
-        {
-          path: "",
-          name: "penjual-dashboard",
-          component: PenjualDashboard,
-          meta: { title: "Dashboard Penjual — ARUNA" },
-        },
-        {
-          path: "produk",
-          name: "penjual-produk",
-          component: PenjualProduk,
-          meta: { title: "Produk Saya — ARUNA" },
-        },
-        {
-          path: "pesanan",
-          name: "penjual-pesanan",
-          component: PenjualPesanan,
-          meta: { title: "Pesanan — ARUNA" },
-        },
-        {
-          path: "profil",
-          name: "penjual-profil",
-          component: PenjualProfil,
-          meta: { title: "Profil Toko — ARUNA" },
-        },
-      ],
-    },
-
-    // =========================
     // ADMIN ROUTES
     // =========================
     ...adminRoutes,
 
     // =========================
-    // HALAMAN 404
+    // 404 CATCH-ALL
     // =========================
     {
       path: "/:pathMatch(.*)*",
@@ -291,9 +219,6 @@ const router = createRouter({
     },
   ],
 
-  // =========================
-  // SCROLL BEHAVIOR
-  // =========================
   scrollBehavior(to, from, saved) {
     if (saved) {
       return saved;
@@ -318,47 +243,31 @@ const router = createRouter({
 });
 
 // =========================
-// GLOBAL AUTH & ROLE GUARD
+// GLOBAL GUARD
 // =========================
-router.beforeEach((to) => {
-  const { isLoggedIn, user } = useAuth();
+router.beforeEach((to, from, next) => {
+  // Cek apakah route butuh login
+  const requiresAuth = to.matched.some((r) => r.meta?.requiresAuth);
 
-  const requiresAuth = to.matched.some(
-    (route) => route.meta?.requiresAuth
-  );
-
-  if (requiresAuth && !isLoggedIn.value) {
-    return {
+  if (requiresAuth && !isLoggedIn()) {
+    return next({
       name: "login",
       query: { redirect: to.fullPath },
-    };
+    });
   }
 
-  const routeRole = to.matched
-    .map((route) => route.meta?.role)
-    .find(Boolean);
-
-  if (routeRole && user.value?.role !== routeRole) {
-    return { name: "home" };
-  }
-
-  return true;
+  next();
 });
 
-// =========================
-// UPDATE DOCUMENT TITLE
-// =========================
+// Update title dokumen
 router.afterEach((to) => {
-  document.title =
-    to.meta?.title || "ARUNA — Marketplace UMKM Indonesia";
+  const title = to.meta?.title;
+  if (title) {
+    document.title = title;
+  }
 });
 
-// =========================
-// INSTALL ADMIN GUARD
-// =========================
+// Pasang guard admin
 installAdminGuard(router);
 
-// =========================
-// EXPORT ROUTER
-// =========================
 export default router;
