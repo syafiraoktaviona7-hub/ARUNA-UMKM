@@ -3,13 +3,13 @@ import { ref, watch, nextTick, onMounted, onUnmounted } from "vue";
 import { useCart } from "@/composables/useCart";
 import { useRouter } from "vue-router";
 
-const { items, groups, count, total, isOpen, close, setQty, remove, clear } = useCart();
+const { items, groups, count, total, isOpen, close, setQty, remove, clear } =
+  useCart();
 const closeBtn = ref(null);
 const router = useRouter();
 
 function continueShopping() {
   close();
-
   setTimeout(() => {
     router.push("/produk");
   }, 260);
@@ -31,14 +31,13 @@ function orderOnline(g) {
           whatsapp: item.whatsapp,
           qty: item.qty,
         })),
-      })
+      }),
     );
   } catch (error) {
     console.error("Gagal menyimpan data checkout:", error);
   }
 
   close();
-
   setTimeout(() => {
     router.push("/checkout");
   }, 260);
@@ -48,25 +47,12 @@ const rupiah = (n) =>
   new Intl.NumberFormat("id-ID", {
     style: "currency",
     currency: "IDR",
-    maximumFractionDigits: 0
+    maximumFractionDigits: 0,
   }).format(n);
-
-function waLink(g) {
-  const lines = g.items.map(
-    (i) => `- ${i.qty}x ${i.name} (${rupiah(i.price)})`
-  );
-
-  const text = `Halo ${g.shop}, saya ingin memesan:\n${lines.join(
-    "\n"
-  )}\nTotal: ${rupiah(g.subtotal)}`;
-
-  return `https://wa.me/${g.whatsapp}?text=${encodeURIComponent(text)}`;
-}
 
 // Kunci scroll halaman saat drawer terbuka dan pindahkan fokus ke tombol tutup
 watch(isOpen, async (v) => {
   document.body.style.overflow = v ? "hidden" : "";
-
   if (v) {
     await nextTick();
     closeBtn.value?.focus();
@@ -125,6 +111,7 @@ onUnmounted(() => {
             </button>
           </header>
 
+          <!-- KOSONG -->
           <div v-if="!items.length" class="empty">
             <svg
               viewBox="0 0 24 24"
@@ -151,48 +138,26 @@ onUnmounted(() => {
               produk.
             </p>
 
-            <button
-              type="button"
-              class="ghost"
-              @click="continueShopping"
-            >
+            <button type="button" class="ghost" @click="continueShopping">
               Lanjut belanja
             </button>
           </div>
 
+          <!-- ADA ITEM -->
           <div v-else class="list">
-            <section
-              v-for="g in groups"
-              :key="g.shop"
-              class="shop"
-            >
+            <section v-for="g in groups" :key="g.shop" class="shop">
               <h3>{{ g.shop }}</h3>
 
-              <article
-                v-for="i in g.items"
-                :key="i.key"
-                class="row"
-              >
-                <img
-                  v-if="i.image"
-                  :src="i.image"
-                  :alt="i.name"
-                />
+              <article v-for="i in g.items" :key="i.key" class="row">
+                <img v-if="i.image" :src="i.image" :alt="i.name" />
 
-                <div
-                  v-else
-                  class="ph"
-                  aria-hidden="true"
-                >
+                <div v-else class="ph" aria-hidden="true">
                   {{ i.name.charAt(0) }}
                 </div>
 
                 <div class="info">
                   <b>{{ i.name }}</b>
-
-                  <span class="price">
-                    {{ rupiah(i.price) }}
-                  </span>
+                  <span class="price">{{ rupiah(i.price) }}</span>
 
                   <div class="qty">
                     <button
@@ -240,35 +205,37 @@ onUnmounted(() => {
               </article>
 
               <div class="sub">
-                <span>
+                <span class="subtotal">
                   Subtotal
                   <b>{{ rupiah(g.subtotal) }}</b>
                 </span>
 
-                <div class="order-methods">
-                  <!-- Pesan via WhatsApp -->
-                  <a
-                    :href="waLink(g)"
-                    target="_blank"
-                    rel="noopener"
-                    class="order-btn wa"
+                <!-- Pesan Online melalui sistem ARUNA -->
+                <button
+                  type="button"
+                  class="order-btn online"
+                  @click="orderOnline(g)"
+                >
+                  <svg
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    aria-hidden="true"
                   >
-                    Pesan via WhatsApp
-                  </a>
-
-                  <!-- Pesan Online melalui sistem ARUNA -->
-                  <button
-                    type="button"
-                    class="order-btn online"
-                    @click="orderOnline(g)"
-                  >
-                    Pesan Online
-                  </button>
-                </div>
+                    <circle cx="9" cy="20" r="1.5" />
+                    <circle cx="17" cy="20" r="1.5" />
+                    <path d="M3 4H5L7.5 16H18L21 7H6" />
+                  </svg>
+                  Pesan Online
+                </button>
               </div>
             </section>
           </div>
 
+          <!-- FOOTER -->
           <footer v-if="items.length">
             <div class="total">
               <span>Total</span>
@@ -276,15 +243,11 @@ onUnmounted(() => {
             </div>
 
             <p class="note">
-              Pembayaran dilakukan langsung ke masing-masing UMKM setelah
-              pesanan dikonfirmasi lewat WhatsApp.
+              Pesanan akan diproses setelah Anda mengisi data pengiriman di
+              halaman checkout.
             </p>
 
-            <button
-              type="button"
-              class="clear"
-              @click="clear"
-            >
+            <button type="button" class="clear" @click="clear">
               Kosongkan keranjang
             </button>
           </footer>
@@ -340,6 +303,7 @@ onUnmounted(() => {
   transform: translateX(100%);
 }
 
+/* HEADER */
 header {
   display: flex;
   align-items: center;
@@ -368,8 +332,14 @@ header h2 span {
   border: 0;
   border-radius: 50%;
   cursor: pointer;
+  transition: background 0.2s ease;
 }
 
+.x:hover {
+  background: #e5f2ff;
+}
+
+/* EMPTY */
 .empty {
   flex: 1;
   display: grid;
@@ -399,6 +369,7 @@ header h2 span {
   border: 1px solid #0865d8;
   border-radius: 10px;
   cursor: pointer;
+  transition: 0.2s ease;
 }
 
 .ghost:hover {
@@ -406,6 +377,7 @@ header h2 span {
   background: #0865d8;
 }
 
+/* LIST */
 .list {
   flex: 1;
   overflow-y: auto;
@@ -415,6 +387,10 @@ header h2 span {
 .shop {
   padding: 14px 0;
   border-bottom: 1px solid #e2ecf8;
+}
+
+.shop:last-child {
+  border-bottom: none;
 }
 
 .shop h3 {
@@ -485,6 +461,7 @@ header h2 span {
   background: transparent;
   border: 0;
   cursor: pointer;
+  transition: color 0.2s ease;
 }
 
 .qty button:hover {
@@ -508,6 +485,9 @@ header h2 span {
   border: 0;
   border-radius: 8px;
   cursor: pointer;
+  transition:
+    color 0.2s ease,
+    background 0.2s ease;
 }
 
 .del:hover {
@@ -515,60 +495,66 @@ header h2 span {
   background: #fdecea;
 }
 
+/* SUBTOTAL + TOMBOL PESAN */
 .sub {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  margin-top: 8px;
-  font-size: 0.88rem;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px dashed #e2ecf8;
+}
+
+.subtotal {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 0.82rem;
   color: #5c718a;
 }
 
-.sub b {
+.subtotal b {
   color: #142d4e;
+  font-size: 0.95rem;
 }
 
-.order-methods {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
+/* TOMBOL PESAN ONLINE (FULL-WIDTH PREMIUM) */
 .order-btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  padding: 8px 12px;
-  font-size: 0.78rem;
-  font-weight: 600;
-  border-radius: 8px;
-  white-space: nowrap;
+  gap: 8px;
+  min-width: 160px;
+  padding: 10px 18px;
+  font-family: inherit;
+  font-size: 0.85rem;
+  font-weight: 650;
+  border-radius: 10px;
   cursor: pointer;
-  text-decoration: none;
+  border: none;
   transition: 0.2s ease;
 }
 
-.wa {
-  color: #fff;
-  background: #25d366;
-}
-
-.wa:hover {
-  background: #1faa52;
+.order-btn svg {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
 }
 
 .online {
-  color: #0865d8;
-  background: #eef6ff;
-  border: 1px solid #0865d8;
+  color: #fff;
+  background: linear-gradient(135deg, #1a7bf0 0%, #0865d8 100%);
+  box-shadow: 0 6px 14px rgba(8, 101, 216, 0.25);
 }
 
 .online:hover {
-  color: #fff;
-  background: #0865d8;
+  background: linear-gradient(135deg, #0865d8 0%, #075fbe 100%);
+  transform: translateY(-1px);
+  box-shadow: 0 10px 20px rgba(8, 101, 216, 0.32);
 }
 
+/* FOOTER */
 footer {
   padding: 16px 20px 20px;
   border-top: 1px solid #e2ecf8;
@@ -581,6 +567,11 @@ footer {
   justify-content: space-between;
 }
 
+.total span {
+  color: #5c718a;
+  font-size: 0.9rem;
+}
+
 .total strong {
   font-size: 1.25rem;
   color: #0865d8;
@@ -590,6 +581,7 @@ footer {
   margin: 8px 0 10px;
   font-size: 0.78rem;
   color: #7d8fa6;
+  line-height: 1.5;
 }
 
 .clear {
@@ -601,18 +593,23 @@ footer {
   cursor: pointer;
 }
 
+.clear:hover {
+  text-decoration: underline;
+}
+
+/* RESPONSIVE */
 @media (max-width: 480px) {
   .sub {
-    align-items: flex-start;
     flex-direction: column;
-  }
-
-  .order-methods {
-    width: 100%;
+    align-items: stretch;
+    gap: 10px;
   }
 
   .order-btn {
-    flex: 1;
+    width: 100%;
+    min-width: 0;
+    padding: 12px 18px;
+    font-size: 0.88rem;
   }
 }
 
