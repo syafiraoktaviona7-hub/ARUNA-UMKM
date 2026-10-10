@@ -62,6 +62,14 @@ export const katalog = {
   artikelDetail: (id) => api.get(`/artikel/${id}`),
 };
 
+// ---- OTP WhatsApp ----
+export const otp = {
+  request: (phone, tujuan = "login") =>
+    api.post("/auth/request-otp", { phone, tujuan }),
+  verify: (phone, code, tujuan = "login") =>
+    api.post("/auth/verify-otp", { phone, code, tujuan }),
+};
+
 // ---- Customer ----
 export const customer = {
   // items: [{ id, qty }]; opsional: nama_penerima, no_hp_penerima, alamat_kirim, catatan, metode_bayar
@@ -70,6 +78,23 @@ export const customer = {
   pesananDetail: (id) => api.get(`/pesanan/${id}`),
   batalkanPesanan: (id) => api.patch(`/pesanan/${id}/batal`),
   laporan: (body) => api.post("/laporan", body), // target_tipe, target_id, alasan
+};
+
+// ---- Penjual ----
+export const penjual = {
+  dashboard: () => api.get("/penjual/dashboard"),
+
+  produk: () => api.get("/penjual/produk"),
+  produkBuat: (body) => api.post("/penjual/produk", body),
+  produkUpdate: (id, body) => api.put(`/penjual/produk/${id}`, body),
+  produkHapus: (id) => api.delete(`/penjual/produk/${id}`),
+
+  pesanan: (params) => api.get("/penjual/pesanan", params),
+  pesananDetail: (id) => api.get(`/penjual/pesanan/${id}`),
+  pesananUbahStatus: (id, status) => api.patch(`/penjual/pesanan/${id}/status`, { status }),
+
+  profil: () => api.get("/penjual/profil"),
+  profilUpdate: (body) => api.put("/penjual/profil", body),
 };
 
 // ---- Admin ----

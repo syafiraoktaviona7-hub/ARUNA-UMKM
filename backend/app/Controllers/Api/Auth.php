@@ -3,6 +3,7 @@
 namespace App\Controllers\Api;
 
 use App\Libraries\Jwt;
+use App\Libraries\OtpService; 
 
 class Auth extends BaseApi
 {
@@ -100,6 +101,32 @@ class Auth extends BaseApi
         if ($this->db->table('users')->where('email', $email)->countAllResults() > 0) {
             return $this->galat('Email sudah terdaftar.', 409);
         }
+
+        // Cek nomor HP duplikat
+if ($phone !== '') {
+    $otpSvc = new OtpService();
+    $canon  = $otpSvc->normalizePhone($phone);
+
+    if ($canon) {
+        $digits = ltrim($canon, '+');            // 62852...
+        $lokal  = '0' . substr($digits, 2);      // 0852...
+
+        $sudahDipakai = $this->db->table('users')
+            ->groupStart()
+                ->where('no_hp', $canon)
+                ->orWhere('no_hp', $digits)
+                ->orWhere('no_hp', $lokal)
+            ->groupEnd()
+            ->countAllResults();
+
+        if ($sudahDipakai > 0) {
+            return $this->galat('Nomor HP sudah terdaftar. Silakan login atau gunakan nomor lain.', 409);
+        }
+
+        // simpan versi kanonik ke DB
+        $phone = $canon;
+    }
+}
 
         $tokoKeys = ['namaToko', 'nama_toko', 'shopName', 'kategori', 'category', 'kategoriUsaha',
             'provinsi', 'kota', 'kecamatan', 'alamat', 'whatsapp', 'deskripsi'];
@@ -235,5 +262,152 @@ class Auth extends BaseApi
         $row = $this->db->table('users')->where('id', $u['id'])->get()->getRowArray();
 
         return $this->respond($this->formatUser($row));
+    }
+
+        // ==================== OTP WhatsApp ====================
+
+    /**
+     * POST /api/auth/request-otp
+     * Body: { "phone": "0812xxxx", "tujuan": "login"|"register" }
+     */
+    public function requestOtp()
+    {
+        $d     = $this->body();
+        $phone = $this->ambil($d, ['phone', 'nomorHp', 'noHp', 'no_hp', 'telepon']);
+
+        $svc   = new OtpService();
+        $canon = $svc->normalizePhone($phone);
+
+        if (! $canon) {
+            return $this->galat('Nomor HP tidak valid.');
+        }
+
+        $tujuan = strtolower($this->ambil($d, ['tujuan', 'purpose'])) ?: 'login';
+        if (! in_array($tujuan, ['login', 'register'], true)) {
+            $tujuan = 'login';
+        }
+
+        // Rate limit sederhana: cooldown 60 detik per nomor
+        $cek = $this->db->table('otp_codes')
+            ->where('phone', $canon)
+            ->where('tujuan', $tujuan)
+            ->where('created_at >', date('Y-m-d H:i:s', time() - OtpService::RESEND_COOLDOWN_SECONDS))
+            ->orderBy('id', 'DESC')
+            ->get(1)->getRowArray();
+
+        if ($cek) {
+            $sisa = OtpService::RESEND_COOLDOWN_SECONDS - (time() - strtotime($cek['created_at']));
+            return $this->galat("Mohon tunggu {$sisa} detik sebelum minta OTP lagi.", 429);
+        }
+
+        $code = $svc->generateCode();
+        $hash = $svc->hashCode($code);
+
+        $this->db->table('otp_codes')->insert([
+            'phone'      => $canon,
+            'code_hash'  => $hash,
+            'tujuan'     => $tujuan,
+            'percobaan'  => 0,
+            'expires_at' => date('Y-m-d H:i:s', time() + OtpService::OTP_TTL_SECONDS),
+            'created_at' => date('Y-m-d H:i:s'),
+        ]);
+
+        if (! $svc->sendViaWhatsapp($canon, $code)) {
+            return $this->galat('Gagal mengirim OTP WhatsApp. Coba lagi nanti.', 500);
+        }
+
+        return $this->respond([
+            'status'  => true,
+            'message' => 'OTP telah dikirim ke WhatsApp ' . $svc->maskPhone($canon),
+            'phone'   => $canon,
+        ]);
+    }
+
+    /**
+     * POST /api/auth/verify-otp
+     * Body: { "phone": "0812xxxx", "code": "123456", "tujuan": "login" }
+     *
+     * Kalau tujuan=login dan nomor sudah terdaftar → langsung kembalikan token+user.
+     * Kalau nomor belum terdaftar → hanya kembalikan status verified (frontend lanjut ke form register).
+     */
+    public function verifyOtp()
+    {
+        $d     = $this->body();
+        $phone = $this->ambil($d, ['phone', 'nomorHp', 'noHp', 'no_hp', 'telepon']);
+        $code  = $this->ambil($d, ['code', 'otp', 'kode']);
+
+        $svc   = new OtpService();
+        $canon = $svc->normalizePhone($phone);
+
+        if (! $canon) {
+            return $this->galat('Nomor HP tidak valid.');
+        }
+        if ($code === '' || ! preg_match('/^\d{4,8}$/', $code)) {
+            return $this->galat('Kode OTP tidak valid.');
+        }
+
+        $tujuan = strtolower($this->ambil($d, ['tujuan', 'purpose'])) ?: 'login';
+
+        $row = $this->db->table('otp_codes')
+            ->where('phone', $canon)
+            ->where('tujuan', $tujuan)
+            ->where('used_at', null)
+            ->orderBy('id', 'DESC')
+            ->get(1)->getRowArray();
+
+        if (! $row) {
+            return $this->galat('Kode OTP tidak ditemukan. Minta kode baru.', 404);
+        }
+        if (strtotime($row['expires_at']) < time()) {
+            return $this->galat('Kode OTP sudah kedaluwarsa. Minta kode baru.', 410);
+        }
+        if ((int) $row['percobaan'] >= 5) {
+            return $this->galat('Terlalu banyak percobaan. Minta kode baru.', 429);
+        }
+        if (! $svc->verifyCode($code, $row['code_hash'])) {
+            $this->db->table('otp_codes')->where('id', $row['id'])
+                ->update(['percobaan' => (int) $row['percobaan'] + 1]);
+            return $this->galat('Kode OTP salah.', 401);
+        }
+
+        // Tandai terpakai
+        $this->db->table('otp_codes')->where('id', $row['id'])
+            ->update(['used_at' => date('Y-m-d H:i:s')]);
+
+        // Cek apakah nomor sudah terdaftar
+$digits = ltrim($canon, '+');
+$lokal  = '0' . substr($digits, 2);
+$user   = $this->db->table('users')
+    ->groupStart()
+        ->where('no_hp', $canon)
+        ->orWhere('no_hp', $digits)
+        ->orWhere('no_hp', $lokal)
+    ->groupEnd()
+    ->get(1)->getRowArray();
+
+// Kalau tujuan=register dan nomor sudah terdaftar → tolak
+if ($tujuan === 'register' && $user) {
+    return $this->galat('Nomor HP sudah terdaftar. Silakan login atau gunakan nomor lain.', 409);
+}
+
+if (! $user) {
+    return $this->respond([
+        'status'     => true,
+        'registered' => false,
+        'message'    => 'Nomor terverifikasi. Silakan lengkapi pendaftaran.',
+        'phone'      => $canon,
+    ]);
+}
+
+if ($user['status'] !== 'aktif') {
+    return $this->galat('Akun ini diblokir. Hubungi admin ARUNA.', 403);
+}
+
+return $this->respond([
+    'status'     => true,
+    'registered' => true,
+    'token'      => Jwt::encode(['sub' => (int) $user['id'], 'role' => $user['peran']]),
+    'user'       => $this->formatUser($user),
+]);
     }
 }

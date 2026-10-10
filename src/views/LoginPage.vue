@@ -1,19 +1,151 @@
 <script setup>
-import { ref, computed, onBeforeUnmount } from "vue";
-import RegisterRoleModal from "@/components/RegisterRoleModal.vue";
+import { ref, computed, onBeforeUnmount, nextTick } from "vue";
 import { useRouter } from "vue-router";
 import { useAuth } from "@/composables/useAuth";
+import RegisterRoleModal from "@/components/RegisterRoleModal.vue";
 
 const router = useRouter();
-const { login: authLogin } = useAuth();
+const { requestOtp, verifyOtp } = useAuth();
 
 const showRegisterModal = ref(false);
 
-const email = ref("");
-const password = ref("");
-const showPassword = ref(false);
-const isLoading = ref(false);
-const errorMsg = ref("");
+// ===== LOADING SCREEN 3 DETIK =====
+const isLoading = ref(true);
+const logoSrc = "/images/aruna-logo.png";
+const logoFailed = ref(false);
+
+setTimeout(() => {
+  isLoading.value = false;
+}, 3000);
+
+// ===== FORM OTP =====
+const step = ref("phone");
+const loading = ref(false);
+const error = ref("");
+
+const inputPhone = ref("");
+const canonicalPhone = ref("");
+
+// ===== OTP 6 KOTAK =====
+const otpDigits = ref(["", "", "", "", "", ""]);
+const otpRefs = ref([]);
+
+function setOtpRef(el, idx) {
+  if (el) otpRefs.value[idx] = el;
+}
+
+const otpValue = computed(() => otpDigits.value.join(""));
+
+function onOtpInput(e, idx) {
+  const raw = e.target.value.replace(/\D/g, "");
+  if (raw.length > 1) {
+    const digits = raw.slice(0, 6 - idx).split("");
+    digits.forEach((d, i) => {
+      if (idx + i < 6) otpDigits.value[idx + i] = d;
+    });
+    const nextIdx = Math.min(idx + digits.length, 5);
+    nextTick(() => otpRefs.value[nextIdx]?.focus());
+    return;
+  }
+  otpDigits.value[idx] = raw;
+  if (raw && idx < 5) {
+    nextTick(() => otpRefs.value[idx + 1]?.focus());
+  }
+}
+
+function onOtpKeydown(e, idx) {
+  if (e.key === "Backspace") {
+    if (otpDigits.value[idx]) {
+      otpDigits.value[idx] = "";
+    } else if (idx > 0) {
+      otpDigits.value[idx - 1] = "";
+      nextTick(() => otpRefs.value[idx - 1]?.focus());
+    }
+    e.preventDefault();
+  }
+  if (e.key === "ArrowLeft" && idx > 0) {
+    nextTick(() => otpRefs.value[idx - 1]?.focus());
+  }
+  if (e.key === "ArrowRight" && idx < 5) {
+    nextTick(() => otpRefs.value[idx + 1]?.focus());
+  }
+}
+
+function onOtpPaste(e) {
+  const text = (e.clipboardData || window.clipboardData).getData("text");
+  const digits = text.replace(/\D/g, "").slice(0, 6).split("");
+  if (!digits.length) return;
+  e.preventDefault();
+  otpDigits.value = ["", "", "", "", "", ""];
+  digits.forEach((d, i) => {
+    otpDigits.value[i] = d;
+  });
+  const nextIdx = Math.min(digits.length, 5);
+  nextTick(() => otpRefs.value[nextIdx]?.focus());
+}
+
+const cooldown = ref(0);
+let cooldownTimer = null;
+const canResend = computed(() => cooldown.value <= 0);
+
+function startCooldown() {
+  cooldown.value = 60;
+  if (cooldownTimer) clearInterval(cooldownTimer);
+  cooldownTimer = setInterval(() => {
+    cooldown.value--;
+    if (cooldown.value <= 0) {
+      clearInterval(cooldownTimer);
+      cooldownTimer = null;
+    }
+  }, 1000);
+}
+
+function kembaliKeBeranda() {
+  router.push("/");
+}
+
+function gantiNomor() {
+  step.value = "phone";
+  otpDigits.value = ["", "", "", "", "", ""];
+  error.value = "";
+}
+
+async function kirimOtp() {
+  error.value = "";
+  if (!inputPhone.value.trim()) {
+    error.value = "Silakan masukkan nomor WhatsApp Anda.";
+    return;
+  }
+
+  loading.value = true;
+  try {
+    const res = await requestOtp(inputPhone.value, "login");
+    canonicalPhone.value = res.phone || inputPhone.value;
+    step.value = "otp";
+    startCooldown();
+    nextTick(() => otpRefs.value[0]?.focus());
+  } catch (e) {
+    error.value = e.message || "Gagal mengirim OTP.";
+  } finally {
+    loading.value = false;
+  }
+}
+
+async function kirimUlang() {
+  if (!canResend.value) return;
+  error.value = "";
+  loading.value = true;
+  try {
+    await requestOtp(canonicalPhone.value, "login");
+    startCooldown();
+    otpDigits.value = ["", "", "", "", "", ""];
+    nextTick(() => otpRefs.value[0]?.focus());
+  } catch (e) {
+    error.value = e.message || "Gagal mengirim ulang OTP.";
+  } finally {
+    loading.value = false;
+  }
+}
 
 // ===== POPUP SELAMAT DATANG =====
 const REDIRECT_MS = 2800;
@@ -36,412 +168,323 @@ const welcomeText = computed(() => {
   return "Senang bertemu lagi. Kelola dan kembangkan usaha Anda bersama ARUNA.";
 });
 
-function kembaliKeBeranda() {
-  router.push("/");
-}
-
 function lanjut() {
   clearTimeout(redirectTimer);
   welcome.value.show = false;
   router.push(welcome.value.target);
 }
 
-function clearError() {
-  errorMsg.value = "";
-}
-
-async function login() {
-  if (isLoading.value) return;
-
-  if (!email.value || !password.value) {
-    errorMsg.value = "Silakan isi email dan password terlebih dahulu.";
+async function verifikasi() {
+  error.value = "";
+  const code = otpValue.value;
+  if (code.length < 6) {
+    error.value = "Kode OTP harus 6 digit.";
     return;
   }
 
-  errorMsg.value = "";
-  isLoading.value = true;
-
+  loading.value = true;
   try {
-    const user = await authLogin(email.value, password.value);
+    const res = await verifyOtp(canonicalPhone.value, code, "login");
+
+    if (!res.registered) {
+      router.push({
+        name: "customer-register",
+        query: { phone: canonicalPhone.value },
+      });
+      return;
+    }
 
     let target = "/";
-    if (user.role === "admin") target = "/admin";
+    if (res.user.role === "admin") target = "/admin";
 
     welcome.value = {
       show: true,
-      name: user.name || "Pengguna",
-      role: user.role,
+      name: res.user.name || "Pengguna",
+      role: res.user.role,
       target,
     };
 
     redirectTimer = setTimeout(lanjut, REDIRECT_MS);
-  } catch (error) {
-    errorMsg.value = error?.message || "Login gagal. Silakan coba lagi.";
+  } catch (e) {
+    error.value = e.message || "Kode OTP salah.";
+    otpDigits.value = ["", "", "", "", "", ""];
+    nextTick(() => otpRefs.value[0]?.focus());
   } finally {
-    isLoading.value = false;
+    loading.value = false;
   }
 }
 
-onBeforeUnmount(() => clearTimeout(redirectTimer));
+onBeforeUnmount(() => {
+  clearTimeout(redirectTimer);
+  if (cooldownTimer) clearInterval(cooldownTimer);
+});
 </script>
 
 <template>
-  <main class="login-page">
-    <!-- =========================
-         BAGIAN KIRI
-    ========================== -->
-    <section class="login-left">
-      <div class="left-content">
-        <h1>
-          Selamat Datang
-          <br />
-          di <span>ARUNA</span>
-        </h1>
-
-        <p class="left-description">
-          Masuk ke akun Anda dan lanjutkan
-          <br />
-          perjalanan mendukung UMKM Indonesia.
-          <br />
-          Temukan produk lokal berkualitas dan
-          <br />
-          berbagai peluang usaha dalam satu platform.
-        </p>
-
-        <!-- GAMBAR CUSTOMER -->
-        <div class="character-wrapper">
+  <!-- LOADING SCREEN -->
+  <Transition name="loader-fade">
+    <div v-if="isLoading" class="loader-screen">
+      <div class="loader-content">
+        <div class="loader-logo">
           <img
-            src="/images/login-customer.png"
-            alt="Customer ARUNA"
-            class="character-image"
+            v-if="!logoFailed"
+            :src="logoSrc"
+            alt="ARUNA"
+            @error="logoFailed = true"
           />
+          <strong v-else>ARUNA</strong>
+          <span class="loader-ring"></span>
+          <span class="loader-ring loader-ring-2"></span>
         </div>
 
-        <!-- KEUNGGULAN -->
-        <div class="benefit-card">
-          <div class="benefit-item">
-            <div class="benefit-icon">
-              <svg viewBox="0 0 24 24" fill="none">
-                <path
-                  d="M6 8.5V7a6 6 0 0 1 12 0v1.5"
-                  stroke="currentColor"
-                  stroke-width="1.8"
-                  stroke-linecap="round"
-                />
-                <path
-                  d="M5 8.5h14v10H5z"
-                  stroke="currentColor"
-                  stroke-width="1.8"
-                  stroke-linejoin="round"
-                />
-              </svg>
-            </div>
+        <p class="loader-text">Memuat ARUNA...</p>
 
-            <div>
-              <h3>Beragam Produk UMKM</h3>
-              <p>
-                Dari makanan, fashion, hingga kerajinan
-                <br />
-                tangan lokal.
-              </p>
-            </div>
-          </div>
-
-          <div class="benefit-item">
-            <div class="benefit-icon">
-              <svg viewBox="0 0 24 24" fill="none">
-                <path
-                  d="M12 3l8 3v5c0 5.2-3.4 8.8-8 10-4.6-1.2-8-4.8-8-10V6l8-3z"
-                  stroke="currentColor"
-                  stroke-width="1.8"
-                  stroke-linejoin="round"
-                />
-                <path
-                  d="m8.5 12 2.2 2.2 4.8-5"
-                  stroke="currentColor"
-                  stroke-width="1.8"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                />
-              </svg>
-            </div>
-
-            <div>
-              <h3>Transaksi Aman</h3>
-              <p>Belanja dengan aman dan nyaman.</p>
-            </div>
-          </div>
-
-          <div class="benefit-item">
-            <div class="benefit-icon heart">
-              <svg viewBox="0 0 24 24" fill="currentColor">
-                <path
-                  d="M12 21s-7.2-4.7-9.5-9C.7 8.5 2.4 5 6.1 5c2.1 0 3.5 1.2 4.3 2.5C11.2 6.2 12.7 5 14.8 5c3.7 0 5.4 3.5 3.6 7-2.3 4.3-9.4 9-9.4 9z"
-                />
-              </svg>
-            </div>
-
-            <div>
-              <h3>Dukung UMKM Indonesia</h3>
-              <p>
-                Setiap transaksi membantu pertumbuhan
-                <br />
-                pelaku usaha lokal.
-              </p>
-            </div>
-          </div>
+        <div class="loader-bar">
+          <span></span>
         </div>
       </div>
-    </section>
+    </div>
+  </Transition>
 
-    <!-- =========================
-         BAGIAN KANAN
-    ========================== -->
-    <section class="login-right">
-      <div class="login-card">
-        <!-- HEADER CARD -->
-        <div class="card-top">
-          <button class="back-pill" type="button" @click="kembaliKeBeranda">
-            <span class="back-ic">
-              <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                <path
-                  d="M15 18l-6-6 6-6"
-                  stroke="currentColor"
-                  stroke-width="2.2"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                />
-              </svg>
-            </span>
-            <svg
-              class="home-ic"
-              viewBox="0 0 24 24"
-              fill="none"
-              aria-hidden="true"
-            >
+  <!-- HALAMAN LOGIN -->
+  <main v-if="!isLoading" class="login-page">
+    <div class="login-card">
+      <!-- HEADER — GAMBAR FULL + TEKS OVERLAY -->
+      <header class="card-header">
+        <div class="hero-image">
+          <img src="/images/OTP.png" alt="Ilustrasi ARUNA" />
+        </div>
+
+        <div class="hero-overlay" aria-hidden="true"></div>
+
+        <nav class="top-nav" aria-label="Navigasi">
+          <button
+            type="button"
+            class="nav-btn back-btn"
+            aria-label="Kembali ke Beranda"
+            title="Kembali ke Beranda"
+            @click="kembaliKeBeranda"
+          >
+            <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
               <path
-                d="M3.5 11 12 4l8.5 7"
+                d="M15 18l-6-6 6-6"
                 stroke="currentColor"
-                stroke-width="1.9"
+                stroke-width="2.4"
                 stroke-linecap="round"
                 stroke-linejoin="round"
               />
-              <path
-                d="M5.5 10v9.5h13V10"
-                stroke="currentColor"
-                stroke-width="1.9"
-                stroke-linejoin="round"
-              />
-              <path
-                d="M10 19.5v-5h4v5"
-                stroke="currentColor"
-                stroke-width="1.9"
-                stroke-linejoin="round"
-              />
             </svg>
-            <span class="back-label">Kembali ke Beranda</span>
+            <span>Kembali</span>
           </button>
 
-          <div class="register-box">
-            <span class="register-q">Belum punya akun?</span>
-            <button
-              class="register-pill"
-              type="button"
-              @click="showRegisterModal = true"
-            >
-              <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                <circle
-                  cx="9.5"
-                  cy="8"
-                  r="3.6"
-                  stroke="currentColor"
-                  stroke-width="1.9"
-                />
-                <path
-                  d="M2.8 20c.5-3.6 3.2-5.6 6.7-5.6 2 0 3.7.6 4.9 1.8"
-                  stroke="currentColor"
-                  stroke-width="1.9"
-                  stroke-linecap="round"
-                />
-                <path
-                  d="M18 13v6M15 16h6"
-                  stroke="currentColor"
-                  stroke-width="1.9"
-                  stroke-linecap="round"
-                />
-              </svg>
-              <span>Daftar</span>
-            </button>
-          </div>
+          <button
+            type="button"
+            class="nav-btn register-btn"
+            aria-label="Daftar akun baru"
+            @click="showRegisterModal = true"
+          >
+            <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <circle
+                cx="12"
+                cy="8"
+                r="3.5"
+                stroke="currentColor"
+                stroke-width="2"
+              />
+              <path
+                d="M5 20c1.5-3.5 4-5 7-5s5.5 1.5 7 5"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+              />
+            </svg>
+            <span>Daftar</span>
+          </button>
+        </nav>
+
+        <div class="hero-title">
+          <h1>Masuk</h1>
+          <p>Selamat datang kembali di ARUNA</p>
         </div>
+      </header>
 
-        <!-- JUDUL -->
-        <div class="login-header">
-          <h2>
-            Masuk ke Akun
-            <span>ARUNA</span>
-          </h2>
+      <!-- BODY FORM -->
+      <section class="card-body">
+        <div class="body-title">
+          <h2>Masuk ke Akun <span>ARUNA</span></h2>
 
-          <p>
-            Masukkan email dan password Anda untuk melanjutkan
-            <br />
-            ke platform ARUNA.
+          <p v-if="step === 'phone'">
+            Masukkan nomor WhatsApp Anda. Kami akan mengirim kode OTP untuk
+            verifikasi.
+          </p>
+          <p v-else>
+            Kode OTP telah dikirim ke <strong>{{ canonicalPhone }}</strong
+            >. Masukkan 6 digit kode untuk melanjutkan.
           </p>
         </div>
 
-        <!-- PESAN ERROR -->
-        <Transition name="fade">
-          <div v-if="errorMsg" class="error-box" role="alert">
+        <form
+          class="otp-form"
+          @submit.prevent="step === 'phone' ? kirimOtp() : verifikasi()"
+        >
+          <!-- STEP 1 -->
+          <template v-if="step === 'phone'">
+            <div class="form-group">
+              <label for="phone">Nomor WhatsApp</label>
+              <div class="input-wrapper">
+                <span class="input-icon" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" fill="none">
+                    <path
+                      d="M6 3H9L11 8L8.5 9.5C9.6 11.8 12.2 14.4 14.5 15.5L16 13L21 15V18C21 19.1 20.1 20 19 20C10.7 20 4 13.3 4 5C4 3.9 4.9 3 6 3Z"
+                      stroke="currentColor"
+                      stroke-width="1.8"
+                      stroke-linejoin="round"
+                    />
+                  </svg>
+                </span>
+                <span class="input-prefix">+62</span>
+                <input
+                  id="phone"
+                  v-model="inputPhone"
+                  type="tel"
+                  inputmode="numeric"
+                  placeholder="812 3456 7890"
+                  autocomplete="tel"
+                />
+              </div>
+            </div>
+          </template>
+
+          <!-- STEP 2 -->
+          <template v-else>
+            <div class="form-group">
+              <label>Kode OTP</label>
+              <div class="otp-boxes" @paste.prevent="onOtpPaste">
+                <input
+                  v-for="(digit, idx) in otpDigits"
+                  :key="idx"
+                  :ref="(el) => setOtpRef(el, idx)"
+                  :value="digit"
+                  type="text"
+                  inputmode="numeric"
+                  maxlength="1"
+                  autocomplete="one-time-code"
+                  class="otp-box"
+                  :class="{ filled: digit }"
+                  @input="onOtpInput($event, idx)"
+                  @keydown="onOtpKeydown($event, idx)"
+                  @focus="$event.target.select()"
+                />
+              </div>
+            </div>
+
+            <div class="otp-actions">
+              <!-- TOMBOL KIRIM ULANG -->
+              <button
+                type="button"
+                class="otp-action-btn resend-btn"
+                :class="{ cooling: !canResend }"
+                :disabled="!canResend || loading"
+                @click="kirimUlang"
+              >
+                <span class="action-icon">
+                  <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                    <path
+                      d="M21 12a9 9 0 1 1-3-6.7"
+                      stroke="currentColor"
+                      stroke-width="2"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    />
+                    <path
+                      d="M21 4v5h-5"
+                      stroke="currentColor"
+                      stroke-width="2"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    />
+                  </svg>
+                </span>
+                <span class="action-text">
+                  <template v-if="canResend">Kirim ulang kode</template>
+                  <template v-else>
+                    Kirim ulang dalam <b>{{ cooldown }}s</b>
+                  </template>
+                </span>
+              </button>
+
+              <!-- TOMBOL GANTI NOMOR -->
+              <button
+                type="button"
+                class="otp-action-btn change-btn"
+                @click="gantiNomor"
+              >
+                <span class="action-icon">
+                  <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                    <path
+                      d="M6 3H9L11 8L8.5 9.5C9.6 11.8 12.2 14.4 14.5 15.5L16 13L21 15V18C21 19.1 20.1 20 19 20C10.7 20 4 13.3 4 5C4 3.9 4.9 3 6 3Z"
+                      stroke="currentColor"
+                      stroke-width="1.8"
+                      stroke-linejoin="round"
+                    />
+                    <path
+                      d="m15 5 4 4-4 4"
+                      stroke="currentColor"
+                      stroke-width="2"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    />
+                    <path
+                      d="M19 9h-7"
+                      stroke="currentColor"
+                      stroke-width="2"
+                      stroke-linecap="round"
+                    />
+                  </svg>
+                </span>
+                <span class="action-text">Ganti nomor</span>
+              </button>
+            </div>
+          </template>
+
+          <!-- ERROR -->
+          <p v-if="error" class="form-error">
             <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
               <circle
                 cx="12"
                 cy="12"
                 r="9"
                 stroke="currentColor"
-                stroke-width="1.9"
+                stroke-width="1.8"
               />
               <path
-                d="M12 7.5v5.5"
+                d="M12 7v6"
                 stroke="currentColor"
-                stroke-width="2"
+                stroke-width="1.8"
                 stroke-linecap="round"
               />
-              <circle cx="12" cy="16.4" r="1.1" fill="currentColor" />
+              <circle cx="12" cy="17" r="1" fill="currentColor" />
             </svg>
-            <span>{{ errorMsg }}</span>
-          </div>
-        </Transition>
+            <span>{{ error }}</span>
+          </p>
 
-        <!-- FORM -->
-        <form @submit.prevent="login">
-          <!-- EMAIL -->
-          <div class="form-group">
-            <label for="email"> Alamat Email </label>
+          <!-- SUBMIT -->
+          <button type="submit" class="login-submit" :disabled="loading">
+            <span v-if="loading" class="spinner" aria-hidden="true"></span>
 
-            <div class="input-wrapper">
-              <svg class="input-icon" viewBox="0 0 24 24" fill="none">
-                <rect
-                  x="3"
-                  y="5"
-                  width="18"
-                  height="14"
-                  rx="2"
-                  stroke="currentColor"
-                  stroke-width="1.8"
-                />
-                <path
-                  d="m3 7 9 6 9-6"
-                  stroke="currentColor"
-                  stroke-width="1.8"
-                  stroke-linejoin="round"
-                />
-              </svg>
+            <span v-if="step === 'phone'">
+              {{ loading ? "Mengirim..." : "Kirim OTP" }}
+            </span>
+            <span v-else>
+              {{ loading ? "Memverifikasi..." : "Verifikasi & Masuk" }}
+            </span>
 
-              <input
-                id="email"
-                v-model="email"
-                type="email"
-                autocomplete="email"
-                placeholder="Masukkan email Anda"
-                :disabled="isLoading"
-                @input="clearError"
-              />
-            </div>
-          </div>
-
-          <!-- PASSWORD -->
-          <div class="form-group password-group">
-            <label for="password"> Password </label>
-
-            <div class="input-wrapper">
-              <svg class="input-icon" viewBox="0 0 24 24" fill="none">
-                <rect
-                  x="5"
-                  y="10"
-                  width="14"
-                  height="10"
-                  rx="2"
-                  stroke="currentColor"
-                  stroke-width="1.8"
-                />
-                <path
-                  d="M8 10V7a4 4 0 0 1 8 0v3"
-                  stroke="currentColor"
-                  stroke-width="1.8"
-                  stroke-linecap="round"
-                />
-              </svg>
-
-              <input
-                id="password"
-                v-model="password"
-                :type="showPassword ? 'text' : 'password'"
-                autocomplete="current-password"
-                placeholder="Masukkan password Anda"
-                :disabled="isLoading"
-                @input="clearError"
-              />
-
-              <button
-                class="password-toggle"
-                type="button"
-                @click="showPassword = !showPassword"
-                :aria-label="
-                  showPassword ? 'Sembunyikan password' : 'Tampilkan password'
-                "
-              >
-                <svg v-if="!showPassword" viewBox="0 0 24 24" fill="none">
-                  <path
-                    d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6z"
-                    stroke="currentColor"
-                    stroke-width="1.7"
-                  />
-                  <circle
-                    cx="12"
-                    cy="12"
-                    r="2.5"
-                    stroke="currentColor"
-                    stroke-width="1.7"
-                  />
-                </svg>
-
-                <svg v-else viewBox="0 0 24 24" fill="none">
-                  <path
-                    d="M3 3l18 18"
-                    stroke="currentColor"
-                    stroke-width="1.8"
-                    stroke-linecap="round"
-                  />
-                  <path
-                    d="M10.6 6.2A9.8 9.8 0 0 1 12 6c6 0 9.5 6 9.5 6a17 17 0 0 1-3.2 3.7"
-                    stroke="currentColor"
-                    stroke-width="1.7"
-                    stroke-linecap="round"
-                  />
-                  <path
-                    d="M6.1 8.1C3.8 9.8 2.5 12 2.5 12s3.5 6 9.5 6c1.1 0 2.1-.2 3-.6"
-                    stroke="currentColor"
-                    stroke-width="1.7"
-                    stroke-linecap="round"
-                  />
-                </svg>
-              </button>
-            </div>
-          </div>
-
-          <!-- LUPA PASSWORD -->
-          <div class="forgot-wrapper">
-            <button type="button" class="forgot-password">
-              Lupa Password?
-            </button>
-          </div>
-
-          <!-- LOGIN -->
-          <button type="submit" class="login-submit" :disabled="isLoading">
-            <span v-if="isLoading" class="spinner" aria-hidden="true"></span>
-            <span>{{ isLoading ? "Memproses..." : "Masuk Sekarang" }}</span>
-
-            <svg v-if="!isLoading" viewBox="0 0 24 24" fill="none">
+            <svg
+              v-if="!loading"
+              viewBox="0 0 24 24"
+              fill="none"
+              aria-hidden="true"
+            >
               <path
                 d="M5 12h13"
                 stroke="currentColor"
@@ -459,35 +502,75 @@ onBeforeUnmount(() => clearTimeout(redirectTimer));
           </button>
         </form>
 
-        <!-- FOOTER -->
+        <div class="divider" aria-hidden="true">
+          <span>atau</span>
+        </div>
+
+        <div class="quick-actions">
+          <button type="button" class="quick-btn" @click="kembaliKeBeranda">
+            <span class="quick-icon">
+              <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <path
+                  d="M3 11l9-8 9 8"
+                  stroke="currentColor"
+                  stroke-width="1.8"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                />
+                <path
+                  d="M5 10v10h14V10"
+                  stroke="currentColor"
+                  stroke-width="1.8"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                />
+              </svg>
+            </span>
+            <span class="quick-text">Beranda</span>
+          </button>
+
+          <button
+            type="button"
+            class="quick-btn primary"
+            @click="showRegisterModal = true"
+          >
+            <span class="quick-icon">
+              <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <path
+                  d="M12 5v14M5 12h14"
+                  stroke="currentColor"
+                  stroke-width="1.8"
+                  stroke-linecap="round"
+                />
+              </svg>
+            </span>
+            <span class="quick-text">Daftar Akun</span>
+          </button>
+        </div>
+
         <div class="login-security">
-          <svg viewBox="0 0 24 24" fill="none">
-            <rect
-              x="5"
-              y="10"
-              width="14"
-              height="10"
-              rx="2"
+          <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <path
+              d="M12 3l8 3v5c0 5.2-3.4 8.8-8 10-4.6-1.2-8-4.8-8-10V6l8-3z"
               stroke="currentColor"
-              stroke-width="1.8"
+              stroke-width="1.6"
+              stroke-linejoin="round"
             />
             <path
-              d="M8 10V7a4 4 0 0 1 8 0v3"
+              d="m8.5 12 2.2 2.2 4.8-5"
               stroke="currentColor"
               stroke-width="1.8"
               stroke-linecap="round"
+              stroke-linejoin="round"
             />
           </svg>
-
-          <span> Data Anda aman dan terlindungi bersama ARUNA. </span>
+          <span>Data Anda aman dan terlindungi bersama ARUNA.</span>
         </div>
-      </div>
-    </section>
+      </section>
+    </div>
   </main>
 
-  <!-- =========================
-       POPUP SELAMAT DATANG
-  ========================== -->
+  <!-- POPUP WELCOME -->
   <Transition name="pop">
     <div
       v-if="welcome.show"
@@ -498,12 +581,10 @@ onBeforeUnmount(() => clearTimeout(redirectTimer));
       aria-label="Login berhasil"
     >
       <div class="welcome-card">
-        <!-- konfeti -->
         <div class="confetti" aria-hidden="true">
           <span v-for="n in 14" :key="n" :style="{ '--i': n }"></span>
         </div>
 
-        <!-- centang animasi -->
         <div class="welcome-check">
           <svg viewBox="0 0 52 52" fill="none" aria-hidden="true">
             <circle class="ring" cx="26" cy="26" r="23" />
@@ -578,553 +659,548 @@ onBeforeUnmount(() => clearTimeout(redirectTimer));
   box-sizing: border-box;
 }
 
+/* =========================
+   HALAMAN
+========================= */
+
 .login-page {
   min-height: 100vh;
   width: 100%;
-  display: grid;
-  grid-template-columns: 45% 55%;
-  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px 16px;
   background:
     radial-gradient(
-      circle at 12% 5%,
-      rgba(155, 205, 255, 0.55) 0 90px,
-      transparent 91px
+      circle at 12% 10%,
+      rgba(120, 190, 255, 0.35) 0 180px,
+      transparent 181px
     ),
     radial-gradient(
-      circle at 91% 7%,
-      rgba(168, 213, 255, 0.45) 0 150px,
-      transparent 151px
+      circle at 88% 90%,
+      rgba(120, 190, 255, 0.3) 0 220px,
+      transparent 221px
     ),
-    linear-gradient(135deg, #f1f9ff 0%, #dff1ff 50%, #edf8ff 100%);
-
-  font-family: "Poppins", "Figtree", Arial, sans-serif;
+    linear-gradient(135deg, #eaf4ff 0%, #d7ebff 50%, #eef7ff 100%);
+  font-family:
+    "Poppins",
+    "Figtree",
+    -apple-system,
+    BlinkMacSystemFont,
+    Arial,
+    sans-serif;
 }
 
 /* =========================
-   LEFT
+   KARTU LOGIN
 ========================= */
-
-.login-left {
-  min-height: 100vh;
-  position: relative;
-  display: flex;
-  justify-content: center;
-  padding: 65px 40px 30px;
-  overflow: hidden;
-}
-
-.login-left::before {
-  content: "";
-  position: absolute;
-  width: 360px;
-  height: 360px;
-  left: -220px;
-  top: 310px;
-  border-radius: 50%;
-  background: rgba(132, 194, 255, 0.25);
-}
-
-.login-left::after {
-  content: "";
-  position: absolute;
-  width: 290px;
-  height: 290px;
-  right: -170px;
-  bottom: 60px;
-  border-radius: 50%;
-  background: rgba(132, 194, 255, 0.22);
-}
-
-.left-content {
-  width: 100%;
-  max-width: 560px;
-  position: relative;
-  z-index: 2;
-}
-
-.left-content h1 {
-  margin: 20px 0 10px;
-  color: #0c2350;
-  font-size: clamp(40px, 4vw, 58px);
-  line-height: 1.12;
-  font-weight: 750;
-  letter-spacing: -1.5px;
-}
-
-.left-content h1 span {
-  color: #0865d8;
-}
-
-.left-description {
-  margin: 0;
-  color: #55729f;
-  font-size: 19px;
-  line-height: 1.4;
-  font-weight: 450;
-}
-
-/* CHARACTER */
-
-.character-wrapper {
-  position: relative;
-  width: 560px;
-  height: 390px;
-  margin-top: 8px;
-  display: flex;
-  align-items: flex-end;
-  justify-content: center;
-}
-
-.character-image {
-  width: 100%;
-  height: 100%;
-  object-fit: contain;
-  object-position: center bottom;
-}
-
-/* BENEFIT CARD */
-
-.benefit-card {
-  position: relative;
-  width: 535px;
-  margin: -8px auto 0;
-  padding: 19px 30px;
-
-  background: rgba(255, 255, 255, 0.82);
-  border: 1px solid rgba(255, 255, 255, 0.9);
-  border-radius: 25px;
-
-  box-shadow: 0 14px 35px rgba(56, 118, 177, 0.12);
-
-  backdrop-filter: blur(10px);
-}
-
-.benefit-item {
-  display: flex;
-  align-items: center;
-  gap: 18px;
-  min-height: 70px;
-}
-
-.benefit-icon {
-  flex: 0 0 58px;
-  width: 58px;
-  height: 58px;
-
-  display: grid;
-  place-items: center;
-
-  background: #e1efff;
-  color: #0865d8;
-  border-radius: 50%;
-}
-
-.benefit-icon svg {
-  width: 28px;
-  height: 28px;
-}
-
-.benefit-icon.heart {
-  color: #ff5060;
-}
-
-.benefit-item h3 {
-  margin: 0 0 3px;
-  color: #112a56;
-  font-size: 16px;
-  font-weight: 700;
-}
-
-.benefit-item p {
-  margin: 0;
-  color: #6d86ad;
-  font-size: 12px;
-  line-height: 1.4;
-}
-
-/* =========================
-   RIGHT
-========================= */
-
-.login-right {
-  min-height: 100vh;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 35px 50px;
-}
 
 .login-card {
-  width: min(760px, 100%);
-  min-height: 850px;
-  padding: 40px 68px 42px;
-
-  background: rgba(255, 255, 255, 0.96);
-  border-radius: 30px;
-
-  box-shadow: 0 18px 55px rgba(49, 101, 155, 0.13);
-
-  position: relative;
+  width: 100%;
+  max-width: 420px;
+  background: #ffffff;
+  border-radius: 24px;
+  overflow: hidden;
+  box-shadow:
+    0 30px 60px rgba(12, 35, 80, 0.18),
+    0 10px 24px rgba(12, 35, 80, 0.1);
 }
 
-/* CARD TOP */
+/* =========================
+   HEADER — GAMBAR FULL + OVERLAY
+========================= */
 
-.card-top {
+.card-header {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  overflow: hidden;
+  background: linear-gradient(135deg, #0a4fb0 0%, #0865d8 100%);
+}
+
+.hero-image {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.hero-image img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
+  display: block;
+}
+
+.hero-overlay {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    180deg,
+    rgba(12, 35, 80, 0.05) 0%,
+    rgba(12, 35, 80, 0.15) 45%,
+    rgba(8, 60, 140, 0.85) 100%
+  );
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* NAV TOMBOL */
+.top-nav {
+  position: absolute;
+  top: 16px;
+  left: 0;
+  right: 0;
+  z-index: 3;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  flex-wrap: wrap;
-  gap: 12px;
-  min-height: 48px;
+  padding: 0 16px;
 }
 
-/* tombol kembali (pil) */
-.back-pill {
-  display: inline-flex;
-  align-items: center;
-  gap: 10px;
-
-  height: 48px;
-  padding: 0 20px 0 6px;
-
-  border: 1.5px solid #dce8f6;
-  border-radius: 999px;
-
-  background: #f5f9ff;
-  color: #4d6a98;
-
-  font-family: inherit;
-  font-size: 14.5px;
-  font-weight: 600;
-
-  cursor: pointer;
-
-  transition:
-    background 0.2s ease,
-    border-color 0.2s ease,
-    color 0.2s ease,
-    box-shadow 0.2s ease;
-}
-
-.back-ic {
-  width: 36px;
-  height: 36px;
-
-  display: grid;
-  place-items: center;
-
-  border-radius: 50%;
-  background: #fff;
-  color: #0865d8;
-
-  box-shadow: 0 3px 9px rgba(8, 101, 216, 0.14);
-
-  transition:
-    transform 0.2s ease,
-    background 0.2s ease,
-    color 0.2s ease;
-}
-
-.back-ic svg {
-  width: 20px;
-  height: 20px;
-}
-
-.home-ic {
-  width: 21px;
-  height: 21px;
-  flex-shrink: 0;
-}
-
-.back-pill:hover {
-  background: #eaf4ff;
-  border-color: #b9d7fb;
-  color: #0865d8;
-  box-shadow: 0 6px 16px rgba(8, 101, 216, 0.1);
-}
-
-.back-pill:hover .back-ic {
-  transform: translateX(-3px);
-  background: #0865d8;
-  color: #fff;
-}
-
-/* kotak daftar */
-.register-box {
-  display: inline-flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.register-q {
-  color: #7c91b4;
-  font-size: 14px;
-}
-
-.register-pill {
+.nav-btn {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-
-  height: 44px;
-  padding: 0 20px;
-
+  height: 40px;
+  padding: 0 16px;
   border: none;
   border-radius: 999px;
-
-  background: linear-gradient(135deg, #1a7bf0, #0865d8);
-  color: #fff;
-
   font-family: inherit;
-  font-size: 14.5px;
-  font-weight: 650;
-
+  font-size: 13px;
+  font-weight: 700;
   cursor: pointer;
-
-  box-shadow: 0 8px 18px rgba(8, 101, 216, 0.24);
-
   transition:
+    background 0.2s ease,
     transform 0.2s ease,
     box-shadow 0.2s ease;
+  box-shadow: 0 6px 16px rgba(12, 35, 80, 0.25);
 }
 
-.register-pill svg {
-  width: 21px;
-  height: 21px;
-}
-
-.register-pill:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 12px 24px rgba(8, 101, 216, 0.3);
-}
-
-.back-pill:focus-visible,
-.register-pill:focus-visible,
-.welcome-btn:focus-visible {
-  outline: 3px solid rgba(8, 101, 216, 0.35);
-  outline-offset: 2px;
-}
-
-/* HEADER */
-
-.login-header {
-  margin-top: 48px;
-}
-
-.login-header h2 {
-  margin: 0;
-  color: #0d2051;
-  font-size: 42px;
-  line-height: 1.15;
-  font-weight: 750;
-  letter-spacing: -1px;
-}
-
-.login-header h2 span {
-  color: #0865d8;
-}
-
-.login-header p {
-  margin: 12px 0 35px;
-  color: #91a5c8;
-  font-size: 17px;
-  line-height: 1.45;
-}
-
-/* ERROR */
-
-.error-box {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-
-  margin: -12px 0 24px;
-  padding: 14px 18px;
-
-  border: 1px solid #ffd0d4;
-  border-radius: 14px;
-
-  background: #fff2f3;
-  color: #c7323f;
-
-  font-size: 14.5px;
-  font-weight: 500;
-  line-height: 1.4;
-}
-
-.error-box svg {
-  width: 24px;
-  height: 24px;
+.nav-btn svg {
+  width: 18px;
+  height: 18px;
   flex-shrink: 0;
 }
 
-/* FORM */
+.back-btn {
+  background: #ffffff;
+  color: #0d2051;
+}
+
+.back-btn:hover {
+  background: #f1f7ff;
+  transform: translateY(-2px);
+  box-shadow: 0 10px 22px rgba(12, 35, 80, 0.3);
+}
+
+.register-btn {
+  background: #0865d8;
+  color: #ffffff;
+}
+
+.register-btn:hover {
+  background: #0754b5;
+  transform: translateY(-2px);
+  box-shadow: 0 10px 22px rgba(8, 101, 216, 0.45);
+}
+
+.hero-title {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 2;
+  padding: 24px 24px 22px;
+  color: #ffffff;
+}
+
+.hero-title h1 {
+  margin: 0 0 6px;
+  font-size: 32px;
+  font-weight: 800;
+  letter-spacing: -1px;
+  line-height: 1.1;
+  text-shadow: 0 2px 12px rgba(0, 0, 0, 0.35);
+}
+
+.hero-title p {
+  margin: 0;
+  font-size: 13.5px;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.95);
+  text-shadow: 0 1px 6px rgba(0, 0, 0, 0.35);
+}
+
+/* =========================
+   BODY (FORM)
+========================= */
+
+.card-body {
+  padding: 26px 26px 24px;
+  background: #ffffff;
+}
+
+.body-title {
+  margin-bottom: 22px;
+}
+
+.body-title h2 {
+  margin: 0 0 8px;
+  color: #0d2051;
+  font-size: 22px;
+  line-height: 1.25;
+  font-weight: 750;
+  letter-spacing: -0.5px;
+}
+
+.body-title h2 span {
+  color: #0865d8;
+}
+
+.body-title p {
+  margin: 0;
+  color: #7d92b8;
+  font-size: 13.5px;
+  line-height: 1.55;
+}
+
+.body-title p strong {
+  color: #0d2051;
+  font-weight: 600;
+}
+
+/* =========================
+   FORM
+========================= */
+
+.otp-form {
+  display: flex;
+  flex-direction: column;
+}
 
 .form-group {
-  margin-bottom: 27px;
+  margin-bottom: 18px;
 }
 
 .form-group label {
   display: block;
-  margin-bottom: 10px;
-
+  margin-bottom: 8px;
   color: #102652;
-  font-size: 16px;
+  font-size: 13px;
   font-weight: 650;
 }
 
 .input-wrapper {
   position: relative;
+  display: flex;
+  align-items: center;
   width: 100%;
-}
-
-.input-wrapper input {
-  width: 100%;
-  height: 64px;
-
-  padding: 0 58px 0 70px;
-
-  border: 1.5px solid #dce8f6;
-  border-radius: 14px;
-
-  background: #fff;
-
-  color: #182e59;
-  font-family: inherit;
-  font-size: 16px;
-
-  outline: none;
-
+  height: 54px;
+  padding: 0 16px;
+  border: 1.5px solid #e0eaf6;
+  border-radius: 12px;
+  background: #f8fbff;
   transition:
     border-color 0.2s ease,
-    box-shadow 0.2s ease;
+    box-shadow 0.2s ease,
+    background 0.2s ease;
 }
 
-.input-wrapper input:disabled {
-  background: #f6f9fd;
-  cursor: not-allowed;
-}
-
-.input-wrapper input::placeholder {
-  color: #a5b1c5;
-}
-
-.input-wrapper input:focus {
+.input-wrapper:focus-within {
   border-color: #4e9cff;
-  box-shadow: 0 0 0 4px rgba(8, 101, 216, 0.07);
+  background: #ffffff;
+  box-shadow: 0 0 0 4px rgba(8, 101, 216, 0.08);
 }
 
 .input-icon {
-  position: absolute;
-  left: 23px;
-  top: 50%;
-  transform: translateY(-50%);
-
-  width: 26px;
-  height: 26px;
-
-  color: #7792bb;
-  pointer-events: none;
-}
-
-.password-toggle {
-  position: absolute;
-  right: 18px;
-  top: 50%;
-  transform: translateY(-50%);
-
-  width: 35px;
-  height: 35px;
-
-  border: none;
-  background: transparent;
-
-  color: #91a3bf;
-
+  flex-shrink: 0;
+  width: 20px;
+  height: 20px;
+  color: #6d84aa;
   display: grid;
   place-items: center;
-
-  cursor: pointer;
 }
 
-.password-toggle svg {
-  width: 23px;
-  height: 23px;
+.input-icon svg {
+  width: 100%;
+  height: 100%;
 }
 
-/* FORGOT */
-
-.forgot-wrapper {
-  display: flex;
-  justify-content: flex-end;
-  margin-top: -14px;
-  margin-bottom: 30px;
+.input-prefix {
+  margin-left: 10px;
+  padding-right: 10px;
+  border-right: 1px solid #dbe6f3;
+  color: #0d2051;
+  font-size: 14.5px;
+  font-weight: 650;
 }
 
-.forgot-password {
+.input-wrapper input {
+  flex: 1;
+  height: 100%;
+  padding: 0 0 0 10px;
   border: none;
   background: transparent;
-  padding: 0;
-
-  color: #0865d8;
+  color: #0d2051;
   font-family: inherit;
   font-size: 15px;
-  font-weight: 600;
-
-  cursor: pointer;
-  text-decoration: underline;
+  font-weight: 550;
+  outline: none;
+  min-width: 0;
 }
 
-/* LOGIN BUTTON */
+.input-wrapper input::placeholder {
+  color: #a5b6cf;
+  font-weight: 500;
+}
 
-.login-submit {
+/* =========================
+   OTP 6 KOTAK
+========================= */
+
+.otp-boxes {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.otp-box {
   width: 100%;
-  height: 72px;
+  height: 58px;
+  padding: 0;
+  border: 1.5px solid #dbe6f3;
+  border-radius: 12px;
+  background: #f8fbff;
+  color: #0d2051;
+  font-family: "Poppins", "Figtree", Arial, sans-serif;
+  font-size: 22px;
+  font-weight: 700;
+  text-align: center;
+  outline: none;
+  transition:
+    border-color 0.2s ease,
+    background 0.2s ease,
+    box-shadow 0.2s ease,
+    transform 0.15s ease;
+  caret-color: #0865d8;
+}
 
-  border: none;
-  border-radius: 14px;
+.otp-box:hover {
+  border-color: #b8d0ea;
+}
 
-  background: #0865d8;
-  color: #fff;
+.otp-box:focus {
+  border-color: #0865d8;
+  background: #ffffff;
+  box-shadow: 0 0 0 4px rgba(8, 101, 216, 0.12);
+  transform: translateY(-2px);
+}
 
+.otp-box.filled {
+  border-color: #0865d8;
+  background: #eaf4ff;
+  color: #0865d8;
+}
+
+/* =========================
+   OTP ACTIONS (2 TOMBOL TERPISAH)
+========================= */
+
+.otp-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin: 0 0 18px;
+}
+
+.otp-action-btn {
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 18px;
-
+  gap: 8px;
+  height: 44px;
+  padding: 0 12px;
+  border-radius: 12px;
   font-family: inherit;
-  font-size: 20px;
-  font-weight: 650;
-
+  font-size: 12.5px;
+  font-weight: 600;
   cursor: pointer;
-
-  box-shadow: 0 10px 25px rgba(8, 101, 216, 0.2);
-
   transition:
+    border-color 0.2s ease,
     background 0.2s ease,
-    transform 0.2s ease;
+    transform 0.15s ease,
+    box-shadow 0.2s ease;
+  text-align: center;
+  line-height: 1.15;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.action-icon {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 16px;
+  height: 16px;
+}
+
+.action-icon svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.action-text {
+  display: inline-block;
+}
+
+.action-text b {
+  font-weight: 800;
+}
+
+/* TOMBOL KIRIM ULANG */
+.resend-btn {
+  border: 1.5px solid #cfe2f7;
+  background: #eff6ff;
+  color: #0865d8;
+}
+
+.resend-btn:hover:not(:disabled) {
+  border-color: #0865d8;
+  background: #dbeaff;
+  transform: translateY(-1px);
+  box-shadow: 0 6px 14px rgba(8, 101, 216, 0.2);
+}
+
+.resend-btn:hover:not(:disabled) .action-icon {
+  animation: spin-icon 0.8s ease;
+}
+
+@keyframes spin-icon {
+  from {
+    transform: rotate(0);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.resend-btn.cooling {
+  border-color: #e2e8f0;
+  background: #f7fafc;
+  color: #94a3b8;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+.resend-btn.cooling .action-icon {
+  color: #b8c6d9;
+}
+
+/* TOMBOL GANTI NOMOR */
+.change-btn {
+  border: 1.5px solid #e0eaf6;
+  background: #ffffff;
+  color: #0d2051;
+}
+
+.change-btn:hover {
+  border-color: #4e9cff;
+  background: #f8fbff;
+  color: #0865d8;
+  transform: translateY(-1px);
+  box-shadow: 0 6px 14px rgba(8, 101, 216, 0.12);
+}
+
+.change-btn:hover .action-icon {
+  animation: swap-icon 0.5s ease;
+}
+
+@keyframes swap-icon {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  50% {
+    transform: translateX(4px);
+  }
+}
+
+/* =========================
+   ERROR
+========================= */
+
+.form-error {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0 0 16px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: #fff4f4;
+  border: 1px solid #fde0e0;
+  color: #dc2626;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.form-error svg {
+  flex-shrink: 0;
+  width: 20px;
+  height: 20px;
+}
+
+/* =========================
+   SUBMIT
+========================= */
+
+.login-submit {
+  width: 100%;
+  height: 54px;
+  border: none;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #1a7bf0 0%, #0865d8 100%);
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  font-family: inherit;
+  font-size: 15.5px;
+  font-weight: 650;
+  cursor: pointer;
+  box-shadow: 0 10px 22px rgba(8, 101, 216, 0.25);
+  transition:
+    transform 0.2s ease,
+    box-shadow 0.2s ease,
+    opacity 0.2s ease;
 }
 
 .login-submit:hover:not(:disabled) {
-  background: #0754b5;
   transform: translateY(-1px);
+  box-shadow: 0 14px 26px rgba(8, 101, 216, 0.32);
 }
 
 .login-submit:disabled {
-  opacity: 0.8;
-  cursor: wait;
+  opacity: 0.65;
+  cursor: not-allowed;
+  box-shadow: none;
 }
 
 .login-submit svg {
-  width: 29px;
-  height: 29px;
+  width: 20px;
+  height: 20px;
 }
 
 .spinner {
-  width: 24px;
-  height: 24px;
+  width: 20px;
+  height: 20px;
   border: 3px solid rgba(255, 255, 255, 0.35);
-  border-top-color: #fff;
+  border-top-color: #ffffff;
   border-radius: 50%;
   animation: spin 0.8s linear infinite;
 }
@@ -1135,78 +1211,160 @@ onBeforeUnmount(() => clearTimeout(redirectTimer));
   }
 }
 
-/* SECURITY */
+/* =========================
+   DIVIDER
+========================= */
 
-.login-security {
-  margin-top: 105px;
-
+.divider {
   display: flex;
   align-items: center;
-  justify-content: center;
   gap: 12px;
-
-  color: #8198bd;
-  font-size: 15px;
+  margin: 20px 0 16px;
+  color: #98abc5;
+  font-size: 12px;
+  font-weight: 500;
 }
 
-.login-security svg {
-  width: 23px;
-  height: 23px;
-  flex-shrink: 0;
+.divider::before,
+.divider::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: #e5eef8;
 }
 
 /* =========================
-   POPUP SELAMAT DATANG
+   QUICK ACTIONS
+========================= */
+
+.quick-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.quick-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  height: 46px;
+  padding: 0 12px;
+  border: 1.5px solid #e0eaf6;
+  border-radius: 12px;
+  background: #f8fbff;
+  color: #0d2051;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition:
+    border-color 0.2s ease,
+    background 0.2s ease,
+    transform 0.2s ease;
+}
+
+.quick-btn:hover {
+  border-color: #4e9cff;
+  background: #ffffff;
+  transform: translateY(-1px);
+}
+
+.quick-btn.primary {
+  border-color: transparent;
+  background: #eaf4ff;
+  color: #0865d8;
+}
+
+.quick-btn.primary:hover {
+  background: #dbeaff;
+}
+
+.quick-icon {
+  display: grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+}
+
+.quick-icon svg {
+  width: 100%;
+  height: 100%;
+}
+
+/* =========================
+   SECURITY
+========================= */
+
+.login-security {
+  margin-top: 22px;
+  padding-top: 18px;
+  border-top: 1px solid #eef3fa;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  color: #8198bd;
+  font-size: 12px;
+  text-align: center;
+  line-height: 1.4;
+}
+
+.login-security svg {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+  color: #1faa52;
+}
+
+/* =========================
+   POPUP WELCOME
 ========================= */
 
 .welcome-overlay {
   position: fixed;
   inset: 0;
   z-index: 999;
-
   display: grid;
   place-items: center;
   padding: 20px;
-
   background: rgba(12, 35, 80, 0.45);
   backdrop-filter: blur(6px);
-
-  font-family: "Poppins", "Figtree", Arial, sans-serif;
+  font-family:
+    "Poppins",
+    "Figtree",
+    -apple-system,
+    BlinkMacSystemFont,
+    Arial,
+    sans-serif;
 }
 
 .welcome-card {
   position: relative;
   overflow: hidden;
-
-  width: min(440px, 100%);
-  padding: 44px 36px 30px;
-
+  width: min(420px, 100%);
+  padding: 42px 34px 28px;
   text-align: center;
-
   background:
-    radial-gradient(circle at 50% -10%, #dff0ff 0, transparent 60%), #fff;
-  border-radius: 30px;
-
+    radial-gradient(circle at 50% -10%, #dff0ff 0, transparent 60%), #ffffff;
+  border-radius: 28px;
   box-shadow: 0 30px 70px rgba(12, 35, 80, 0.3);
 }
 
 .welcome-check {
-  width: 92px;
-  height: 92px;
-  margin: 0 auto 18px;
-
+  width: 88px;
+  height: 88px;
+  margin: 0 auto 16px;
   display: grid;
   place-items: center;
-
   border-radius: 50%;
   background: #e8f8ee;
-
   animation: bump 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) both;
 }
 
 .welcome-check svg {
-  width: 64px;
-  height: 64px;
+  width: 60px;
+  height: 60px;
 }
 
 .welcome-check .ring {
@@ -1247,20 +1405,17 @@ onBeforeUnmount(() => clearTimeout(redirectTimer));
 .welcome-badge {
   display: inline-block;
   padding: 5px 14px;
-
   border-radius: 999px;
   background: #e8f8ee;
   color: #188a43;
-
   font-size: 12.5px;
   font-weight: 650;
 }
 
 .welcome-card h3 {
   margin: 14px 0 8px;
-
   color: #0d2051;
-  font-size: 28px;
+  font-size: 26px;
   line-height: 1.25;
   font-weight: 750;
   letter-spacing: -0.5px;
@@ -1273,10 +1428,9 @@ onBeforeUnmount(() => clearTimeout(redirectTimer));
 
 .welcome-text {
   margin: 0 auto 18px;
-  max-width: 320px;
-
+  max-width: 300px;
   color: #6d86ad;
-  font-size: 14.5px;
+  font-size: 14px;
   line-height: 1.55;
 }
 
@@ -1284,62 +1438,54 @@ onBeforeUnmount(() => clearTimeout(redirectTimer));
   display: inline-flex;
   align-items: center;
   gap: 8px;
-
   padding: 9px 16px;
-  margin-bottom: 22px;
-
+  margin-bottom: 20px;
   border-radius: 999px;
   background: #eaf4ff;
   color: #0865d8;
-
-  font-size: 13.5px;
+  font-size: 13px;
   font-weight: 600;
 }
 
 .welcome-role svg {
-  width: 20px;
-  height: 20px;
+  width: 18px;
+  height: 18px;
 }
 
 .welcome-btn {
   width: 100%;
-  height: 56px;
-
+  height: 54px;
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 12px;
-
   border: none;
-  border-radius: 14px;
-
+  border-radius: 12px;
   background: linear-gradient(135deg, #1a7bf0, #0865d8);
-  color: #fff;
-
+  color: #ffffff;
   font-family: inherit;
-  font-size: 16px;
+  font-size: 15.5px;
   font-weight: 650;
-
   cursor: pointer;
-
   box-shadow: 0 10px 22px rgba(8, 101, 216, 0.25);
-
-  transition: transform 0.2s ease;
+  transition:
+    transform 0.2s ease,
+    box-shadow 0.2s ease;
 }
 
 .welcome-btn:hover {
   transform: translateY(-2px);
+  box-shadow: 0 14px 28px rgba(8, 101, 216, 0.32);
 }
 
 .welcome-btn svg {
-  width: 22px;
-  height: 22px;
+  width: 20px;
+  height: 20px;
 }
 
 .welcome-progress {
   height: 5px;
   margin-top: 22px;
-
   overflow: hidden;
   border-radius: 99px;
   background: #e6eef8;
@@ -1348,10 +1494,8 @@ onBeforeUnmount(() => clearTimeout(redirectTimer));
 .welcome-progress span {
   display: block;
   height: 100%;
-
   border-radius: inherit;
   background: linear-gradient(90deg, #4e9cff, #0865d8);
-
   transform-origin: left;
   animation: fill linear forwards;
 }
@@ -1368,12 +1512,14 @@ onBeforeUnmount(() => clearTimeout(redirectTimer));
 .welcome-card small {
   display: block;
   margin-top: 8px;
-
   color: #91a5c8;
   font-size: 12px;
 }
 
-/* konfeti */
+/* =========================
+   KONFETI
+========================= */
+
 .confetti {
   position: absolute;
   inset: 0;
@@ -1382,16 +1528,13 @@ onBeforeUnmount(() => clearTimeout(redirectTimer));
 
 .confetti span {
   position: absolute;
-  top: 118px;
+  top: 110px;
   left: calc(var(--i) * 6.6%);
-
   width: 9px;
   height: 14px;
-
   border-radius: 3px;
   background: #4e9cff;
   opacity: 0;
-
   animation: burst 1.6s calc(var(--i) * 0.06s + 0.55s) ease-out forwards;
 }
 
@@ -1422,20 +1565,9 @@ onBeforeUnmount(() => clearTimeout(redirectTimer));
   }
 }
 
-/* TRANSISI */
-
-.fade-enter-active,
-.fade-leave-active {
-  transition:
-    opacity 0.25s ease,
-    transform 0.25s ease;
-}
-
-.fade-enter-from,
-.fade-leave-to {
-  opacity: 0;
-  transform: translateY(-6px);
-}
+/* =========================
+   TRANSISI POPUP
+========================= */
 
 .pop-enter-active,
 .pop-leave-active {
@@ -1469,184 +1601,353 @@ onBeforeUnmount(() => clearTimeout(redirectTimer));
 }
 
 /* =========================
+   LOADING SCREEN
+========================= */
+
+.loader-screen {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: grid;
+  place-items: center;
+  background:
+    radial-gradient(
+      circle at 50% 30%,
+      rgba(120, 190, 255, 0.35) 0 200px,
+      transparent 201px
+    ),
+    linear-gradient(135deg, #eaf4ff 0%, #d7ebff 50%, #eef7ff 100%);
+}
+
+.loader-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 22px;
+}
+
+.loader-logo {
+  position: relative;
+  width: 130px;
+  height: 130px;
+  display: grid;
+  place-items: center;
+}
+
+.loader-logo img {
+  max-width: 90px;
+  max-height: 90px;
+  object-fit: contain;
+  position: relative;
+  z-index: 2;
+  filter: drop-shadow(0 8px 20px rgba(8, 101, 216, 0.25));
+  animation: logo-pulse 1.6s ease-in-out infinite;
+}
+
+.loader-logo strong {
+  color: #0865d8;
+  font-size: 28px;
+  font-weight: 800;
+  letter-spacing: -1px;
+  position: relative;
+  z-index: 2;
+  animation: logo-pulse 1.6s ease-in-out infinite;
+}
+
+@keyframes logo-pulse {
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.06);
+    opacity: 0.9;
+  }
+}
+
+.loader-ring {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  border: 3px solid transparent;
+  border-top-color: #0865d8;
+  border-right-color: #4e9cff;
+  animation: ring-spin 1.1s linear infinite;
+}
+
+.loader-ring-2 {
+  inset: 10px;
+  border-top-color: #4e9cff;
+  border-right-color: transparent;
+  border-bottom-color: #0865d8;
+  animation-duration: 1.6s;
+  animation-direction: reverse;
+}
+
+@keyframes ring-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.loader-text {
+  margin: 0;
+  color: #0865d8;
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+}
+
+.loader-bar {
+  width: 180px;
+  height: 5px;
+  border-radius: 99px;
+  background: rgba(8, 101, 216, 0.15);
+  overflow: hidden;
+}
+
+.loader-bar span {
+  display: block;
+  height: 100%;
+  width: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #4e9cff, #0865d8);
+  transform-origin: left;
+  animation: loader-fill 3s ease-in-out forwards;
+}
+
+@keyframes loader-fill {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+
+.loader-fade-enter-active,
+.loader-fade-leave-active {
+  transition: opacity 0.5s ease;
+}
+
+.loader-fade-enter-from,
+.loader-fade-leave-to {
+  opacity: 0;
+}
+
+/* =========================
    RESPONSIVE
 ========================= */
 
-@media (max-width: 1250px) {
+@media (max-width: 480px) {
   .login-page {
-    grid-template-columns: 43% 57%;
-  }
-
-  .login-left {
-    padding-left: 35px;
-    padding-right: 25px;
-  }
-
-  .character-wrapper {
-    width: 100%;
-    height: 340px;
-  }
-
-  .benefit-card {
-    width: 100%;
-  }
-
-  .login-right {
-    padding: 25px 30px;
+    padding: 20px 14px;
   }
 
   .login-card {
-    padding-left: 50px;
-    padding-right: 50px;
-  }
-}
-
-@media (max-width: 950px) {
-  .login-page {
-    grid-template-columns: 1fr;
-  }
-
-  .login-left {
-    min-height: auto;
-    padding: 50px 30px 30px;
-  }
-
-  .left-content {
-    max-width: 700px;
-  }
-
-  .character-wrapper {
-    height: 360px;
-  }
-
-  .benefit-card {
-    margin-top: 0;
-  }
-
-  .login-right {
-    min-height: auto;
-    padding: 20px 30px 50px;
-  }
-
-  .login-card {
-    min-height: auto;
-  }
-
-  .login-security {
-    margin-top: 70px;
-  }
-}
-
-@media (max-width: 600px) {
-  .login-left {
-    padding: 35px 20px 25px;
-  }
-
-  .left-content h1 {
-    font-size: 38px;
-  }
-
-  .left-description {
-    font-size: 15px;
-  }
-
-  .character-wrapper {
-    height: 280px;
-  }
-
-  .benefit-card {
-    padding: 15px;
     border-radius: 20px;
   }
 
-  .benefit-item {
-    gap: 12px;
+  .top-nav {
+    top: 14px;
+    padding: 0 14px;
   }
 
-  .benefit-icon {
-    flex-basis: 48px;
-    width: 48px;
-    height: 48px;
+  .nav-btn {
+    height: 36px;
+    padding: 0 12px;
+    font-size: 12px;
+    gap: 6px;
   }
 
-  .benefit-item h3 {
-    font-size: 14px;
+  .nav-btn svg {
+    width: 16px;
+    height: 16px;
   }
 
-  .benefit-item p {
-    font-size: 10px;
+  .hero-title {
+    padding: 20px 20px 18px;
   }
 
-  .login-right {
-    padding: 10px 15px 35px;
+  .hero-title h1 {
+    font-size: 26px;
   }
 
-  .login-card {
-    padding: 25px 22px 30px;
-    border-radius: 22px;
-  }
-
-  .back-pill {
-    height: 42px;
-    gap: 8px;
-    padding-right: 14px;
+  .hero-title p {
     font-size: 12.5px;
   }
 
-  .back-ic {
-    width: 30px;
-    height: 30px;
+  .card-body {
+    padding: 22px 20px 22px;
   }
 
-  .home-ic {
+  .body-title h2 {
+    font-size: 20px;
+  }
+
+  .body-title p {
+    font-size: 12.5px;
+  }
+
+  .input-wrapper {
+    height: 50px;
+  }
+
+  .input-wrapper input {
+    font-size: 14px;
+  }
+
+  .otp-boxes {
+    gap: 6px;
+  }
+
+  .otp-box {
+    height: 52px;
+    font-size: 20px;
+    border-radius: 10px;
+  }
+
+  .login-submit {
+    height: 50px;
+    font-size: 14.5px;
+  }
+
+  .quick-btn {
+    height: 44px;
+    font-size: 12.5px;
+  }
+
+  .welcome-card {
+    padding: 34px 22px 22px;
+    border-radius: 22px;
+  }
+
+  .welcome-card h3 {
+    font-size: 22px;
+  }
+
+  .welcome-check {
+    width: 78px;
+    height: 78px;
+  }
+
+  .welcome-check svg {
+    width: 52px;
+    height: 52px;
+  }
+
+  .loader-logo {
+    width: 110px;
+    height: 110px;
+  }
+
+  .loader-logo img {
+    max-width: 75px;
+    max-height: 75px;
+  }
+}
+
+@media (max-width: 380px) {
+  .otp-actions {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+
+  .otp-action-btn {
+    height: 42px;
+    font-size: 12px;
+  }
+}
+
+@media (max-width: 360px) {
+  .login-page {
+    padding: 14px 10px;
+  }
+
+  .top-nav {
+    padding: 0 10px;
+  }
+
+  .nav-btn {
+    height: 34px;
+    padding: 0 10px;
+    font-size: 11px;
+    gap: 5px;
+  }
+
+  .nav-btn span {
+    display: none;
+  }
+
+  .nav-btn svg {
     width: 18px;
     height: 18px;
   }
 
-  .register-q {
+  .hero-title {
+    padding: 18px 16px 16px;
+  }
+
+  .hero-title h1 {
+    font-size: 22px;
+  }
+
+  .hero-title p {
+    font-size: 11.5px;
+  }
+
+  .card-body {
+    padding: 20px 16px 20px;
+  }
+
+  .body-title h2 {
+    font-size: 18px;
+  }
+
+  .body-title p {
+    font-size: 12px;
+  }
+
+  .input-prefix {
     display: none;
   }
 
-  .register-pill {
-    height: 40px;
-    padding: 0 16px;
-    font-size: 13px;
-  }
-
-  .login-header {
-    margin-top: 35px;
-  }
-
-  .login-header h2 {
-    font-size: 30px;
-  }
-
-  .login-header p {
-    font-size: 13px;
-  }
-
   .input-wrapper input {
-    height: 58px;
-    font-size: 14px;
+    padding-left: 12px;
   }
 
-  .login-submit {
-    height: 62px;
-    font-size: 17px;
+  .otp-boxes {
+    gap: 4px;
   }
 
-  .login-security {
-    font-size: 12px;
-    margin-top: 60px;
+  .otp-box {
+    height: 44px;
+    font-size: 16px;
+    border-radius: 8px;
   }
 
-  .welcome-card {
-    padding: 36px 22px 24px;
-    border-radius: 24px;
+  .quick-btn {
+    padding: 0 8px;
+    font-size: 11.5px;
+    gap: 6px;
   }
 
-  .welcome-card h3 {
-    font-size: 23px;
+  .quick-icon {
+    width: 16px;
+    height: 16px;
+  }
+}
+
+@media (min-width: 481px) and (max-width: 820px) {
+  .login-card {
+    max-width: 440px;
+  }
+}
+
+@media (min-width: 1400px) {
+  .login-card {
+    max-width: 440px;
   }
 }
 </style>

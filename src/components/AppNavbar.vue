@@ -14,7 +14,7 @@ const route = useRoute();
 const { count, open, close } = useCart();
 
 // Auth
-const { user, isLoggedIn, logout } = useAuth();
+const { user, isLoggedIn, isSeller, logout } = useAuth();
 
 const active = ref("beranda");
 const showRegisterModal = ref(false);
@@ -223,6 +223,38 @@ onUnmounted(() => {
 
             <Transition name="profile-dropdown">
               <div v-if="showUserMenu" class="profile-dropdown">
+                              <!-- ★ Dashboard Penjual (hanya untuk penjual) -->
+                <RouterLink
+                  v-if="isSeller"
+                  to="/penjual"
+                  class="profile-menu-item seller-dashboard"
+                  @click="closeUserMenu"
+                >
+                  <span class="profile-menu-icon">
+                    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                      <path
+                        d="M4 10h16v10H4z"
+                        stroke="currentColor"
+                        stroke-width="1.8"
+                        stroke-linejoin="round"
+                      />
+                      <path
+                        d="M3 10L5 4h14l2 6"
+                        stroke="currentColor"
+                        stroke-width="1.8"
+                        stroke-linejoin="round"
+                      />
+                      <path
+                        d="M9 20v-6h6v6"
+                        stroke="currentColor"
+                        stroke-width="1.8"
+                      />
+                    </svg>
+                  </span>
+                  <span>Dashboard Penjual</span>
+                </RouterLink>
+
+                <div v-if="isSeller" class="profile-divider"></div>
                 <RouterLink
                   to="/profil"
                   class="profile-menu-item"
@@ -386,6 +418,16 @@ onUnmounted(() => {
               </div>
               <div class="m-user-name">{{ user?.name }}</div>
             </div>
+                        <!-- ★ Dashboard Penjual (hanya untuk penjual) -->
+            <RouterLink
+              v-if="isSeller"
+              to="/penjual"
+              class="profile-menu-item seller-dashboard"
+              @click="closeMobileMenu"
+            >
+              <span class="profile-menu-icon">🏪</span>
+              <span>Dashboard Penjual</span>
+            </RouterLink>
 
             <RouterLink
               to="/profil"
@@ -438,6 +480,25 @@ onUnmounted(() => {
 </template>
 
 <style scoped>
+/* =========================
+   DASHBOARD PENJUAL (khusus penjual)
+========================= */
+
+.profile-menu-item.seller-dashboard {
+  background: linear-gradient(135deg, #eaf4ff 0%, #f4f9ff 100%);
+  color: #0865d8;
+  font-weight: 650;
+}
+
+.profile-menu-item.seller-dashboard:hover {
+  background: linear-gradient(135deg, #d9e9ff 0%, #e6f1ff 100%);
+  color: #0754b5;
+}
+
+.profile-menu-item.seller-dashboard .profile-menu-icon {
+  color: #0865d8;
+}
+
 .navbar {
   height: 68px;
   width: 100%;
