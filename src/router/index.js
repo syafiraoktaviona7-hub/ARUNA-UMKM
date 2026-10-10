@@ -13,6 +13,7 @@ import ProdukDetailPage from "@/views/ProdukDetailPage.vue";
 import UmkmDetailPage from "@/views/UmkmDetailPage.vue";
 import JasaDetailPage from "@/views/JasaDetailPage.vue";
 
+
 import { katalog } from "@/services/api";
 import { jasaList } from "@/data/jasa";
 import { adminRoutes, installAdminGuard } from "./adminRoutes";
@@ -172,6 +173,7 @@ const router = createRouter({
 
         // ROUTE ADMIN
         ...adminRoutes,
+
 
         // HALAMAN 404
         {
