@@ -33,17 +33,43 @@ const keyOf = (item) => String(item.id ?? `${item.shop}|${item.name}`);
 const limitOf = (stok) =>
   Math.max(0, Math.min(MAX_QTY, Number.isFinite(stok) ? stok : MAX_QTY));
 
+// =========================
+// SINKRON DENGAN LOGOUT
+// =========================
+// useAuth akan dispatch event "aruna:logout" ketika user logout.
+// Di sini kita reset state cart di memori + hapus dari localStorage.
+if (typeof window !== "undefined") {
+  window.addEventListener("aruna:logout", () => {
+    state.items = [];
+    state.open = false;
+    try {
+      localStorage.removeItem(STORAGE_KEY);
+    } catch {
+      /* abaikan */
+    }
+  });
+}
+
 export function useCart() {
   const items = computed(() => state.items);
   const isOpen = computed(() => state.open);
   const count = computed(() => state.items.reduce((n, i) => n + i.qty, 0));
-  const total = computed(() => state.items.reduce((n, i) => n + i.qty * i.price, 0));
+  const total = computed(() =>
+    state.items.reduce((n, i) => n + i.qty * i.price, 0),
+  );
 
   // Kelompokkan per UMKM karena pembayaran dilakukan langsung ke tiap UMKM
   const groups = computed(() => {
     const map = new Map();
     state.items.forEach((i) => {
-      if (!map.has(i.shop)) map.set(i.shop, { shop: i.shop, whatsapp: i.whatsapp, items: [], subtotal: 0 });
+      if (!map.has(i.shop)) {
+        map.set(i.shop, {
+          shop: i.shop,
+          whatsapp: i.whatsapp,
+          items: [],
+          subtotal: 0,
+        });
+      }
       const g = map.get(i.shop);
       g.items.push(i);
       g.subtotal += i.qty * i.price;
@@ -97,5 +123,17 @@ export function useCart() {
   const open = () => (state.open = true);
   const close = () => (state.open = false);
 
-  return { items, isOpen, count, total, groups, add, remove, setQty, clear, open, close };
+  return {
+    items,
+    isOpen,
+    count,
+    total,
+    groups,
+    add,
+    remove,
+    setQty,
+    clear,
+    open,
+    close,
+  };
 }

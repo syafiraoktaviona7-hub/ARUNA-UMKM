@@ -1,11 +1,13 @@
 <script setup>
 import { ref, watch, nextTick, onMounted, onUnmounted } from "vue";
-import { useRoute } from "vue-router";
+import { useRoute, useRouter } from "vue-router";
 import { useCart } from "@/composables/useCart";
 import { useAuth } from "@/composables/useAuth";
 import RegisterRoleModal from "@/components/RegisterRoleModal.vue";
+import LogoutModal from "@/components/LogoutModal.vue";
 
 const route = useRoute();
+const router = useRouter();
 
 // Cart
 const { count, open, close } = useCart();
@@ -17,6 +19,11 @@ const active = ref("beranda");
 const showRegisterModal = ref(false);
 const showUserMenu = ref(false);
 const showMobileMenu = ref(false);
+
+// Logout Modal State
+const showLogoutModal = ref(false);
+const logoutLoading = ref(false);
+const logoutSuccess = ref(false);
 
 // Daftar menu (dipakai oleh menu desktop dan menu HP)
 const links = [
@@ -56,18 +63,41 @@ function openRegister() {
   showRegisterModal.value = true;
 }
 
+// =========================
+// LOGOUT DENGAN MODAL CUSTOM
+// =========================
 function handleLogout() {
-  const oke = window.confirm("Yakin ingin keluar?\n\nKeranjang belanja Anda akan dikosongkan.");
-  if (!oke) return;
-
   closeUserMenu();
   closeMobileMenu();
-  logout();
+  showLogoutModal.value = true;
+  logoutLoading.value = false;
+  logoutSuccess.value = false;
+}
 
-  // Notifikasi kecil (muncul 2 detik)
+function batalLogout() {
+  showLogoutModal.value = false;
+  logoutLoading.value = false;
+  logoutSuccess.value = false;
+}
+
+function konfirmasiLogout() {
+  logoutLoading.value = true;
+
   setTimeout(() => {
-    alert("Anda telah keluar. Sampai jumpa lagi!");
-  }, 100);
+    logout();
+    logoutSuccess.value = true;
+    logoutLoading.value = false;
+
+    setTimeout(() => {
+      showLogoutModal.value = false;
+      router.push("/");
+    }, 2500);
+  }, 700);
+}
+
+function selesaiLogout() {
+  showLogoutModal.value = false;
+  router.push("/");
 }
 
 function handleOutsideClick(event) {
@@ -144,10 +174,7 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <header
-    v-if="route.name !== 'seller-dashboard'"
-    class="navbar"
-  >
+  <header v-if="route.name !== 'seller-dashboard'" class="navbar">
     <div class="navbar-container">
       <!-- Logo -->
       <RouterLink to="/#beranda" class="brand">
@@ -228,8 +255,7 @@ onUnmounted(() => {
 
             <Transition name="profile-dropdown">
               <div v-if="showUserMenu" class="profile-dropdown">
-
-                <!-- ★ Dashboard Penjual (hanya untuk penjual) -->
+                <!-- Dashboard Penjual (hanya untuk penjual) -->
                 <RouterLink
                   v-if="isSeller"
                   to="/penjual"
@@ -276,7 +302,6 @@ onUnmounted(() => {
                           stroke="currentColor"
                           stroke-width="1.8"
                         />
-
                         <path
                           d="M5.5 20c.7-3.8 3-5.8 6.5-5.8s5.8 2 6.5 5.8"
                           stroke="currentColor"
@@ -285,7 +310,6 @@ onUnmounted(() => {
                         />
                       </svg>
                     </span>
-
                     <span>Profil Saya</span>
                   </RouterLink>
 
@@ -302,7 +326,6 @@ onUnmounted(() => {
                           stroke-width="1.8"
                           stroke-linejoin="round"
                         />
-
                         <path
                           d="M9 7h6M9 10.5h6M9 14h4"
                           stroke="currentColor"
@@ -311,7 +334,6 @@ onUnmounted(() => {
                         />
                       </svg>
                     </span>
-
                     <span>Riwayat Pesanan</span>
                   </RouterLink>
 
@@ -331,7 +353,6 @@ onUnmounted(() => {
                         />
                       </svg>
                     </span>
-
                     <span>Produk Favorit</span>
                   </RouterLink>
                 </template>
@@ -352,7 +373,6 @@ onUnmounted(() => {
                         stroke-linecap="round"
                         stroke-linejoin="round"
                       />
-
                       <path
                         d="M14 8l4 4-4 4"
                         stroke="currentColor"
@@ -360,7 +380,6 @@ onUnmounted(() => {
                         stroke-linecap="round"
                         stroke-linejoin="round"
                       />
-
                       <path
                         d="M9 12h9"
                         stroke="currentColor"
@@ -369,7 +388,6 @@ onUnmounted(() => {
                       />
                     </svg>
                   </span>
-
                   <span>Keluar</span>
                 </button>
               </div>
@@ -394,7 +412,7 @@ onUnmounted(() => {
       </div>
     </div>
 
-    <!-- Panel menu (HP): muncul ke bawah -->
+    <!-- Panel menu (HP) -->
     <Transition name="mobile-menu">
       <div v-if="showMobileMenu" id="mobile-menu" class="mobile-panel">
         <nav class="mobile-nav" aria-label="Menu utama">
@@ -435,7 +453,7 @@ onUnmounted(() => {
               <div class="m-user-name">{{ user?.name }}</div>
             </div>
 
-            <!-- ★ Dashboard Penjual (hanya untuk penjual) -->
+            <!-- Dashboard Penjual -->
             <RouterLink
               v-if="isSeller"
               to="/penjual"
@@ -446,7 +464,7 @@ onUnmounted(() => {
               <span>Dashboard Penjual</span>
             </RouterLink>
 
-            <!-- Menu customer (disembunyikan untuk penjual) -->
+            <!-- Menu customer -->
             <template v-if="!isSeller">
               <RouterLink
                 to="/profil"
@@ -505,13 +523,22 @@ onUnmounted(() => {
     v-if="showRegisterModal"
     @close="showRegisterModal = false"
   />
+
+  <!-- Logout Modal (kustom) -->
+  <LogoutModal
+    v-if="showLogoutModal"
+    :loading="logoutLoading"
+    :success="logoutSuccess"
+    @confirm="konfirmasiLogout"
+    @cancel="batalLogout"
+    @done="selesaiLogout"
+  />
 </template>
 
 <style scoped>
 /* =========================
-   DASHBOARD PENJUAL (khusus penjual)
+   DASHBOARD PENJUAL
 ========================= */
-
 .profile-menu-item.seller-dashboard {
   background: linear-gradient(135deg, #eaf4ff 0%, #f4f9ff 100%);
   color: #0865d8;
@@ -610,7 +637,6 @@ onUnmounted(() => {
 }
 
 /* USER MENU */
-
 .user-menu {
   position: relative;
   display: flex;
@@ -651,6 +677,7 @@ onUnmounted(() => {
   color: #fff;
   font-size: 11px;
   font-weight: 700;
+  overflow: hidden;
 }
 
 .user-avatar img {
@@ -658,7 +685,6 @@ onUnmounted(() => {
   height: 100%;
   object-fit: cover;
   display: block;
-  border-radius: 50%;
 }
 
 .user-name {
@@ -683,7 +709,6 @@ onUnmounted(() => {
 }
 
 /* PROFILE DROPDOWN */
-
 .profile-dropdown {
   position: absolute;
   top: calc(100% + 10px);
@@ -728,20 +753,16 @@ onUnmounted(() => {
 .profile-menu-icon {
   width: 28px;
   height: 28px;
-
   display: flex;
   align-items: center;
   justify-content: center;
-
   flex-shrink: 0;
-
   color: #173b6d;
 }
 
 .profile-menu-icon svg {
   width: 24px;
   height: 24px;
-
   display: block;
 }
 
@@ -762,7 +783,6 @@ onUnmounted(() => {
 }
 
 /* DROPDOWN ANIMATION */
-
 .profile-dropdown-enter-active,
 .profile-dropdown-leave-active {
   transition:
@@ -778,7 +798,6 @@ onUnmounted(() => {
 }
 
 /* CART */
-
 .cart-button {
   position: relative;
   width: 30px;
@@ -818,7 +837,6 @@ onUnmounted(() => {
 }
 
 /* LOGIN / REGISTER */
-
 .login-button,
 .register-button {
   height: 30px;
@@ -856,7 +874,6 @@ onUnmounted(() => {
 }
 
 /* TOMBOL MENU (HP) */
-
 .burger {
   display: none;
   position: relative;
@@ -927,7 +944,6 @@ onUnmounted(() => {
 }
 
 /* PANEL MENU (HP) */
-
 .mobile-panel,
 .mobile-overlay {
   display: none;
@@ -957,7 +973,6 @@ onUnmounted(() => {
 }
 
 /* TABLET / HP */
-
 @media (max-width: 1200px) {
   .navbar-container {
     padding: 0 4%;

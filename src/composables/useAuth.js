@@ -1,7 +1,6 @@
 import { reactive, computed } from "vue";
 import { api, otp, getToken, setToken } from "@/services/api";
 
-
 const STORAGE_KEY = "aruna_auth";
 
 function loadUser() {
@@ -25,22 +24,23 @@ function simpanSesi(user, token) {
 }
 
 // Foto profil masih disimpan di browser (belum ada upload ke server): jangan sampai hilang
-const denganFoto = (u) => (state.user?.photo ? { ...u, photo: state.user.photo } : u);
+const denganFoto = (u) =>
+  state.user?.photo ? { ...u, photo: state.user.photo } : u;
 
 function hapusSesi() {
   state.user = null;
   setToken(null);
   localStorage.removeItem(STORAGE_KEY);
 
-  // Bersihkan data terkait user
-  localStorage.removeItem("aruna_cart");           // keranjang
-  localStorage.removeItem("aruna_checkout");       // checkout yang belum selesai
-  // (opsional: kalau mau favorit juga hilang, un-comment baris di bawah)
-  // localStorage.removeItem("aruna_favorites");
-}
+  // Bersihkan semua data terkait user
+  localStorage.removeItem("aruna_cart");
+  localStorage.removeItem("aruna_checkout");
+  localStorage.removeItem("aruna_favorites");
+  localStorage.removeItem("aruna_riwayat_pesanan");
 
-// Token ditolak server (kedaluwarsa / akun diblokir): keluar otomatis
-window.addEventListener("aruna:unauthorized", hapusSesi);
+  // Beri tahu useCart supaya reset state reaktif-nya juga
+  window.dispatchEvent(new Event("aruna:logout"));
+}
 
 export function useAuth() {
   const user = computed(() => state.user);
@@ -118,7 +118,7 @@ export function useAuth() {
     updateUser,
     refreshUser,
     logout,
-    requestOtp,   
-    verifyOtp, 
+    requestOtp,
+    verifyOtp,
   };
 }

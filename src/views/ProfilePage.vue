@@ -4,6 +4,7 @@ import { useRouter, useRoute } from "vue-router";
 import { useAuth } from "@/composables/useAuth";
 import { useWilayahFilter } from "@/composables/useWilayahFilter";
 import { customer } from "@/services/api";
+import LogoutModal from "@/components/LogoutModal.vue";
 
 const router = useRouter();
 const route = useRoute();
@@ -22,6 +23,11 @@ const {
 
 const showEditModal = ref(false);
 const showAddressModal = ref(false);
+
+// LOGOUT MODAL STATE
+const showLogoutModal = ref(false);
+const logoutLoading = ref(false);
+const logoutSuccess = ref(false);
 
 const editForm = ref({
   name: "",
@@ -53,7 +59,6 @@ async function loadOrders() {
   ordersLoading.value = true;
   ordersError.value = "";
 
-  // 1. Ambil dari API
   let dariApi = [];
   let apiError = null;
   try {
@@ -79,12 +84,10 @@ async function loadOrders() {
     console.warn("Gagal load pesanan dari API:", e);
   }
 
-  // 2. Ambil dari localStorage (pesanan hasil checkout)
   let dariLokal = [];
   try {
     const raw = localStorage.getItem("aruna_riwayat_pesanan");
     const parsed = raw ? JSON.parse(raw) : [];
-
     dariLokal = (Array.isArray(parsed) ? parsed : []).map((o, idx) => ({
       id: o.kode || `LOCAL-${idx}`,
       rawId: o.kode || `LOCAL-${idx}`,
@@ -106,10 +109,8 @@ async function loadOrders() {
     console.warn("Gagal load pesanan lokal:", e);
   }
 
-  // 3. Gabung — buang duplikat berdasarkan `id`
   const semuaMap = new Map();
   dariApi.forEach((o) => semuaMap.set(String(o.id), o));
-  // Lokal menimpa kalau kode sama (anggap lebih baru)
   dariLokal.forEach((o) => semuaMap.set(String(o.id), o));
 
   const gabungan = [...semuaMap.values()].sort((a, b) => {
@@ -118,7 +119,6 @@ async function loadOrders() {
     return db - da;
   });
 
-  // 4. Error hanya kalau API gagal DAN lokal kosong
   if (apiError && !dariLokal.length) {
     ordersError.value = apiError.message || "Gagal memuat riwayat pesanan.";
     orders.value = [];
@@ -140,7 +140,7 @@ watch(
 );
 
 // =============================
-// FAVORIT (localStorage)
+// FAVORIT
 // =============================
 function loadFavorites() {
   try {
@@ -374,13 +374,38 @@ async function simpanAlamat() {
   }
 }
 
-function keluar() {
-  const oke = window.confirm(
-    "Yakin ingin keluar?\n\nKeranjang belanja Anda akan dikosongkan.",
-  );
-  if (!oke) return;
+// =============================
+// LOGOUT
+// =============================
+function bukaLogoutModal() {
+  showLogoutModal.value = true;
+  logoutLoading.value = false;
+  logoutSuccess.value = false;
+}
 
-  logout();
+function batalLogout() {
+  showLogoutModal.value = false;
+  logoutLoading.value = false;
+  logoutSuccess.value = false;
+}
+
+function konfirmasiLogout() {
+  logoutLoading.value = true;
+
+  setTimeout(() => {
+    logout();
+    logoutSuccess.value = true;
+    logoutLoading.value = false;
+
+    setTimeout(() => {
+      showLogoutModal.value = false;
+      router.push("/");
+    }, 2500);
+  }, 700);
+}
+
+function selesaiLogout() {
+  showLogoutModal.value = false;
   router.push("/");
 }
 
@@ -525,7 +550,11 @@ function handlePhotoUpload(event) {
 
           <div class="sidebar-divider"></div>
 
-          <button type="button" class="sidebar-item logout" @click="keluar">
+          <button
+            type="button"
+            class="sidebar-item logout"
+            @click="bukaLogoutModal"
+          >
             <span class="sidebar-icon">↪</span>
             <span>Keluar</span>
           </button>
@@ -751,13 +780,11 @@ function handlePhotoUpload(event) {
 
             <div class="orders-divider"></div>
 
-            <!-- LOADING -->
             <div v-if="ordersLoading" class="orders-empty">
               <div class="orders-empty-icon">⏳</div>
               <h2>Memuat riwayat pesanan...</h2>
             </div>
 
-            <!-- ERROR -->
             <div v-else-if="ordersError" class="orders-empty">
               <div class="orders-empty-icon">!</div>
               <h2>Gagal memuat pesanan</h2>
@@ -771,7 +798,6 @@ function handlePhotoUpload(event) {
               </button>
             </div>
 
-            <!-- KOSONG -->
             <div v-else-if="orders.length === 0" class="orders-empty">
               <div class="orders-empty-icon">
                 <svg viewBox="0 0 24 24" fill="none">
@@ -803,7 +829,6 @@ function handlePhotoUpload(event) {
               </button>
             </div>
 
-            <!-- DAFTAR PESANAN -->
             <div v-else class="orders-list">
               <article
                 v-for="order in orders"
@@ -959,7 +984,7 @@ function handlePhotoUpload(event) {
           </div>
         </section>
 
-        <!-- RIGHT COLUMN (hanya di /profil) -->
+        <!-- RIGHT COLUMN -->
         <aside v-if="route.path === '/profil'" class="right-column">
           <div class="profile-card summary-card">
             <h2>Ringkasan Akun</h2>
@@ -1060,6 +1085,7 @@ function handlePhotoUpload(event) {
               <span>Belum memiliki toko</span>
             </div>
           </div>
+
           <div class="profile-card security-card">
             <div class="security-image">
               <img src="/images/security-shield.png" alt="Data Anda Aman" />
@@ -1260,6 +1286,16 @@ function handlePhotoUpload(event) {
         </div>
       </div>
     </div>
+
+    <!-- ================= MODAL LOGOUT ================= -->
+    <LogoutModal
+      v-if="showLogoutModal"
+      :loading="logoutLoading"
+      :success="logoutSuccess"
+      @confirm="konfirmasiLogout"
+      @cancel="batalLogout"
+      @done="selesaiLogout"
+    />
   </div>
 </template>
 
@@ -1352,6 +1388,9 @@ function handlePhotoUpload(event) {
   font-weight: 500;
   cursor: pointer;
   text-align: left;
+  transition:
+    background 0.2s ease,
+    color 0.2s ease;
 }
 
 .sidebar-item:hover,
@@ -1382,7 +1421,12 @@ function handlePhotoUpload(event) {
 }
 
 .sidebar-item.logout {
-  color: #172f58;
+  color: #b3261e;
+}
+
+.sidebar-item.logout:hover {
+  background: #fdecea;
+  color: #b3261e;
 }
 
 /* =========================
@@ -1611,6 +1655,7 @@ function handlePhotoUpload(event) {
   font-size: 13px;
   font-weight: 600;
   cursor: pointer;
+  transition: background 0.2s ease;
 }
 
 .orders-shop-button:hover {
@@ -1666,6 +1711,7 @@ function handlePhotoUpload(event) {
   font-size: 13px;
   font-weight: 600;
   cursor: pointer;
+  transition: background 0.2s ease;
 }
 
 .edit-profile-button:hover {
@@ -1728,6 +1774,11 @@ function handlePhotoUpload(event) {
   justify-content: center;
   box-shadow: 0 5px 15px rgba(25, 89, 150, 0.15);
   cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+.camera-button:hover {
+  background: #f1f8ff;
 }
 
 .camera-button input {
@@ -1871,6 +1922,7 @@ function handlePhotoUpload(event) {
   font-size: 13px;
   font-weight: 600;
   cursor: pointer;
+  transition: background 0.2s ease;
 }
 
 .add-address-button:hover {
@@ -1955,6 +2007,11 @@ function handlePhotoUpload(event) {
   font-size: 13px;
   font-weight: 600;
   cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+.change-address-button:hover {
+  background: #d7e8ff;
 }
 
 /* =========================
@@ -2339,6 +2396,7 @@ function handlePhotoUpload(event) {
   font-size: 12px;
   font-weight: 600;
   cursor: pointer;
+  transition: background 0.2s ease;
 }
 
 .favorites-shop-button {
@@ -2406,6 +2464,7 @@ function handlePhotoUpload(event) {
   background: #fff;
   color: #e14b67;
   cursor: pointer;
+  transition: background 0.2s ease;
 }
 
 .favorite-remove-button svg {
@@ -2438,6 +2497,9 @@ function handlePhotoUpload(event) {
   width: 100%;
 }
 
+/* =========================
+   RESPONSIVE
+========================= */
 /* =========================
    RESPONSIVE
 ========================= */
@@ -2687,6 +2749,19 @@ function handlePhotoUpload(event) {
 
   .favorite-product-image {
     height: 170px;
+  }
+
+  .sidebar-item.logout {
+    font-size: 13px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .favorite-product-card,
+  .sidebar-item,
+  .edit-profile-button,
+  .camera-button {
+    transition: none;
   }
 }
 </style>
