@@ -21,8 +21,8 @@ function simpanSesi(user, token) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(user));
 }
 
-const denganFoto = (u) =>
-  state.user?.photo ? { ...u, photo: state.user.photo } : u;
+// Foto profil masih disimpan di browser (belum ada upload ke server): jangan sampai hilang
+const denganFoto = (u) => (state.user?.photo ? { ...u, photo: state.user.photo } : u);
 
 function hapusSesi() {
   state.user = null;
@@ -30,9 +30,10 @@ function hapusSesi() {
   localStorage.removeItem(STORAGE_KEY);
 
   // Bersihkan data terkait user
-  localStorage.removeItem("aruna_cart");
-  localStorage.removeItem("aruna_checkout");
-  // localStorage.removeItem("aruna_favorites");
+  localStorage.removeItem("aruna_cart");           // keranjang
+  localStorage.removeItem("aruna_checkout");       // checkout yang belum selesai
+    localStorage.removeItem("aruna_favorites");
+  localStorage.removeItem("aruna_riwayat_pesanan");
 }
 
 // Token ditolak server (kedaluwarsa / akun diblokir): keluar otomatis

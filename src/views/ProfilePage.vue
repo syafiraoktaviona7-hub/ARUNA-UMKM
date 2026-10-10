@@ -4,6 +4,7 @@ import { useRouter, useRoute } from "vue-router";
 import { useAuth } from "@/composables/useAuth";
 import { useWilayahFilter } from "@/composables/useWilayahFilter";
 import { customer } from "@/services/api";
+import LogoutModal from "@/components/LogoutModal.vue";
 
 const router = useRouter();
 const route = useRoute();
@@ -22,6 +23,11 @@ const {
 
 const showEditModal = ref(false);
 const showAddressModal = ref(false);
+
+// LOGOUT MODAL STATE
+const showLogoutModal = ref(false);
+const logoutLoading = ref(false);
+const logoutSuccess = ref(false);
 
 const editForm = ref({
   name: "",
@@ -43,7 +49,7 @@ const addressForm = ref({
 const profile = computed(() => user.value || {});
 
 // =============================
-// RIWAYAT PESANAN (dari API)
+// RIWAYAT PESANAN (API + LOKAL)
 // =============================
 const orders = ref([]);
 const ordersLoading = ref(false);
@@ -52,12 +58,15 @@ const ordersError = ref("");
 async function loadOrders() {
   ordersLoading.value = true;
   ordersError.value = "";
+
+  let dariApi = [];
+  let apiError = null;
   try {
     const data = await customer.pesanan();
-    orders.value = (data || []).map((o) => ({
+    dariApi = (data || []).map((o) => ({
       id: o.kode || `ORD-${o.id}`,
       rawId: o.id,
-      createdAt: o.created_at || o.updated_at,
+      createdAt: o.created_at || o.updated_at || new Date().toISOString(),
       status: o.status || "diproses",
       shop: o.nama_umkm || "-",
       total: o.total || 0,
@@ -71,10 +80,53 @@ async function loadOrders() {
       })),
     }));
   } catch (e) {
-    ordersError.value = e.message || "Gagal memuat riwayat pesanan.";
-  } finally {
-    ordersLoading.value = false;
+    apiError = e;
+    console.warn("Gagal load pesanan dari API:", e);
   }
+
+  let dariLokal = [];
+  try {
+    const raw = localStorage.getItem("aruna_riwayat_pesanan");
+    const parsed = raw ? JSON.parse(raw) : [];
+    dariLokal = (Array.isArray(parsed) ? parsed : []).map((o, idx) => ({
+      id: o.kode || `LOCAL-${idx}`,
+      rawId: o.kode || `LOCAL-${idx}`,
+      createdAt: o.tanggal || o.created_at || new Date().toISOString(),
+      status: o.status || "diproses",
+      shop: o.items?.[0]?.shop || o.shop || "-",
+      total: o.total || 0,
+      payment: o.metode_bayar || "-",
+      items: (o.items || []).map((it) => ({
+        id: it.id,
+        name: it.name || "Produk",
+        price: it.price || 0,
+        qty: it.qty || 1,
+        image: it.image || null,
+      })),
+      fromLocal: true,
+    }));
+  } catch (e) {
+    console.warn("Gagal load pesanan lokal:", e);
+  }
+
+  const semuaMap = new Map();
+  dariApi.forEach((o) => semuaMap.set(String(o.id), o));
+  dariLokal.forEach((o) => semuaMap.set(String(o.id), o));
+
+  const gabungan = [...semuaMap.values()].sort((a, b) => {
+    const da = new Date(a.createdAt).getTime() || 0;
+    const db = new Date(b.createdAt).getTime() || 0;
+    return db - da;
+  });
+
+  if (apiError && !dariLokal.length) {
+    ordersError.value = apiError.message || "Gagal memuat riwayat pesanan.";
+    orders.value = [];
+  } else {
+    orders.value = gabungan;
+  }
+
+  ordersLoading.value = false;
 }
 
 watch(
@@ -84,11 +136,11 @@ watch(
       loadOrders();
     }
   },
-  { immediate: true }
+  { immediate: true },
 );
 
 // =============================
-// FAVORIT (masih localStorage)
+// FAVORIT
 // =============================
 function loadFavorites() {
   try {
@@ -104,7 +156,7 @@ const favorites = ref(loadFavorites());
 function hapusFavorit(product) {
   const productId = product.id ?? product.key;
   favorites.value = favorites.value.filter(
-    (item) => (item.id ?? item.key) !== productId
+    (item) => (item.id ?? item.key) !== productId,
   );
   localStorage.setItem("aruna_favorites", JSON.stringify(favorites.value));
 }
@@ -123,6 +175,7 @@ function formatRupiah(value) {
 function statusLabel(status) {
   const map = {
     diproses: "Diproses",
+    menunggu_pembayaran: "Menunggu Pembayaran",
     dikirim: "Dikirim",
     selesai: "Selesai",
     dibatalkan: "Dibatalkan",
@@ -140,8 +193,8 @@ function paymentLabel(mode) {
 }
 
 const displayName = computed(() => profile.value.name || "Customer ARUNA");
-const firstLetter = computed(() =>
-  displayName.value.trim().charAt(0).toUpperCase() || "C"
+const firstLetter = computed(
+  () => displayName.value.trim().charAt(0).toUpperCase() || "C",
 );
 const profilePhoto = computed(() => profile.value.photo || null);
 
@@ -247,7 +300,7 @@ async function bukaEditAlamat() {
   showAddressModal.value = true;
 
   const province = provinces.value.find(
-    (item) => item.name === profile.value.provinsi
+    (item) => item.name === profile.value.provinsi,
   );
   if (!province) return;
   provinceId.value = province.id;
@@ -259,33 +312,51 @@ async function bukaEditAlamat() {
 
   await tungguData(districts);
   const district = districts.value.find(
-    (item) => item.name === profile.value.kecamatan
+    (item) => item.name === profile.value.kecamatan,
   );
   if (!district) return;
   districtId.value = district.id;
 
   await tungguData(villages);
   const village = villages.value.find(
-    (item) => item.name === profile.value.kelurahan
+    (item) => item.name === profile.value.kelurahan,
   );
   if (village) villageId.value = village.id;
 }
 
 async function simpanAlamat() {
   try {
-    if (!provinceId.value) { alert("Provinsi wajib dipilih."); return; }
-    if (!cityId.value) { alert("Kota / Kabupaten wajib dipilih."); return; }
-    if (!districtId.value) { alert("Kecamatan wajib dipilih."); return; }
-    if (!villageId.value) { alert("Kelurahan / Desa wajib dipilih."); return; }
+    if (!provinceId.value) {
+      alert("Provinsi wajib dipilih.");
+      return;
+    }
+    if (!cityId.value) {
+      alert("Kota / Kabupaten wajib dipilih.");
+      return;
+    }
+    if (!districtId.value) {
+      alert("Kecamatan wajib dipilih.");
+      return;
+    }
+    if (!villageId.value) {
+      alert("Kelurahan / Desa wajib dipilih.");
+      return;
+    }
     if (!addressForm.value.alamatLengkap.trim()) {
       alert("Alamat lengkap wajib diisi.");
       return;
     }
 
-    const selectedProvince = provinces.value.find((i) => i.id === provinceId.value);
+    const selectedProvince = provinces.value.find(
+      (i) => i.id === provinceId.value,
+    );
     const selectedCity = cities.value.find((i) => i.id === cityId.value);
-    const selectedDistrict = districts.value.find((i) => i.id === districtId.value);
-    const selectedVillage = villages.value.find((i) => i.id === villageId.value);
+    const selectedDistrict = districts.value.find(
+      (i) => i.id === districtId.value,
+    );
+    const selectedVillage = villages.value.find(
+      (i) => i.id === villageId.value,
+    );
 
     await updateUser({
       provinsi: selectedProvince?.name || "",
@@ -303,13 +374,38 @@ async function simpanAlamat() {
   }
 }
 
-function keluar() {
-  const oke = window.confirm(
-    "Yakin ingin keluar?\n\nKeranjang belanja Anda akan dikosongkan."
-  );
-  if (!oke) return;
+// =============================
+// LOGOUT
+// =============================
+function bukaLogoutModal() {
+  showLogoutModal.value = true;
+  logoutLoading.value = false;
+  logoutSuccess.value = false;
+}
 
-  logout();
+function batalLogout() {
+  showLogoutModal.value = false;
+  logoutLoading.value = false;
+  logoutSuccess.value = false;
+}
+
+function konfirmasiLogout() {
+  logoutLoading.value = true;
+
+  setTimeout(() => {
+    logout();
+    logoutSuccess.value = true;
+    logoutLoading.value = false;
+
+    setTimeout(() => {
+      showLogoutModal.value = false;
+      router.push("/");
+    }, 2500);
+  }, 700);
+}
+
+function selesaiLogout() {
+  showLogoutModal.value = false;
   router.push("/");
 }
 
@@ -324,7 +420,9 @@ function handlePhotoUpload(event) {
 
   const reader = new FileReader();
   reader.onload = () => {
-    const currentUser = JSON.parse(localStorage.getItem("aruna_auth") || "null");
+    const currentUser = JSON.parse(
+      localStorage.getItem("aruna_auth") || "null",
+    );
     if (!currentUser) return;
     const updatedUser = { ...currentUser, photo: reader.result };
     localStorage.setItem("aruna_auth", JSON.stringify(updatedUser));
@@ -337,7 +435,6 @@ function handlePhotoUpload(event) {
 <template>
   <div class="profile-page">
     <main class="profile-main">
-
       <!-- BREADCRUMB -->
       <div class="breadcrumb">
         <button type="button" @click="kembaliKeBeranda">
@@ -349,7 +446,11 @@ function handlePhotoUpload(event) {
               stroke-linecap="round"
               stroke-linejoin="round"
             />
-            <path d="M5.5 10v10h13V10" stroke="currentColor" stroke-width="1.8" />
+            <path
+              d="M5.5 10v10h13V10"
+              stroke="currentColor"
+              stroke-width="1.8"
+            />
           </svg>
         </button>
 
@@ -374,10 +475,8 @@ function handlePhotoUpload(event) {
 
       <!-- CONTENT -->
       <div class="profile-layout">
-
-        <!-- ================= SIDEBAR ================= -->
+        <!-- SIDEBAR -->
         <aside class="profile-sidebar">
-
           <button
             type="button"
             class="sidebar-item"
@@ -386,7 +485,13 @@ function handlePhotoUpload(event) {
           >
             <span class="sidebar-icon">
               <svg viewBox="0 0 24 24" fill="none">
-                <circle cx="12" cy="8" r="3.2" stroke="currentColor" stroke-width="1.8" />
+                <circle
+                  cx="12"
+                  cy="8"
+                  r="3.2"
+                  stroke="currentColor"
+                  stroke-width="1.8"
+                />
                 <path
                   d="M5.5 20c.7-3.4 3-5.2 6.5-5.2s5.8 1.8 6.5 5.2"
                   stroke="currentColor"
@@ -406,8 +511,18 @@ function handlePhotoUpload(event) {
           >
             <span class="sidebar-icon">
               <svg viewBox="0 0 24 24" fill="none">
-                <path d="M6 4.5h12v15H6z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" />
-                <path d="M9 8h6M9 11.5h6M9 15h4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" />
+                <path
+                  d="M6 4.5h12v15H6z"
+                  stroke="currentColor"
+                  stroke-width="1.8"
+                  stroke-linejoin="round"
+                />
+                <path
+                  d="M9 8h6M9 11.5h6M9 15h4"
+                  stroke="currentColor"
+                  stroke-width="1.8"
+                  stroke-linecap="round"
+                />
               </svg>
             </span>
             <span>Riwayat Pesanan</span>
@@ -435,25 +550,32 @@ function handlePhotoUpload(event) {
 
           <div class="sidebar-divider"></div>
 
-          <button type="button" class="sidebar-item logout" @click="keluar">
+          <button
+            type="button"
+            class="sidebar-item logout"
+            @click="bukaLogoutModal"
+          >
             <span class="sidebar-icon">↪</span>
             <span>Keluar</span>
           </button>
         </aside>
 
-        <!-- ================= PROFIL ================= -->
+        <!-- PROFIL -->
         <section v-if="route.path === '/profil'" class="profile-center">
-
           <div class="profile-card profile-header-card">
             <div class="profile-title-area">
               <div>
                 <h1>Profil Saya</h1>
                 <p>
-                  Kelola informasi pribadi Anda untuk pengalaman
-                  yang lebih baik di ARUNA.
+                  Kelola informasi pribadi Anda untuk pengalaman yang lebih baik
+                  di ARUNA.
                 </p>
               </div>
-              <button type="button" class="edit-profile-button" @click="bukaEditProfil">
+              <button
+                type="button"
+                class="edit-profile-button"
+                @click="bukaEditProfil"
+              >
                 <span>✎</span> Edit Profil
               </button>
             </div>
@@ -463,12 +585,20 @@ function handlePhotoUpload(event) {
             <div class="profile-identity">
               <div class="large-avatar-wrapper">
                 <div class="large-avatar">
-                  <img v-if="profilePhoto" :src="profilePhoto" :alt="displayName" />
+                  <img
+                    v-if="profilePhoto"
+                    :src="profilePhoto"
+                    :alt="displayName"
+                  />
                   <span v-else>{{ firstLetter }}</span>
                 </div>
 
                 <label class="camera-button" title="Ganti foto profil">
-                  <input type="file" accept="image/*" @change="handlePhotoUpload" />
+                  <input
+                    type="file"
+                    accept="image/*"
+                    @change="handlePhotoUpload"
+                  />
                   <svg viewBox="0 0 24 24" fill="none">
                     <path
                       d="M4 8h3l1.5-2h7L17 8h3v10H4V8Z"
@@ -476,7 +606,13 @@ function handlePhotoUpload(event) {
                       stroke-width="1.8"
                       stroke-linejoin="round"
                     />
-                    <circle cx="12" cy="13" r="3" stroke="currentColor" stroke-width="1.8" />
+                    <circle
+                      cx="12"
+                      cy="13"
+                      r="3"
+                      stroke="currentColor"
+                      stroke-width="1.8"
+                    />
                   </svg>
                 </label>
               </div>
@@ -498,7 +634,13 @@ function handlePhotoUpload(event) {
             <div class="section-heading">
               <div class="section-heading-icon">
                 <svg viewBox="0 0 24 24" fill="none">
-                  <circle cx="12" cy="7" r="3.2" stroke="currentColor" stroke-width="1.8" />
+                  <circle
+                    cx="12"
+                    cy="7"
+                    r="3.2"
+                    stroke="currentColor"
+                    stroke-width="1.8"
+                  />
                   <path
                     d="M5.5 20c.7-3.8 3-5.8 6.5-5.8s5.8 2 6.5 5.8"
                     stroke="currentColor"
@@ -544,12 +686,22 @@ function handlePhotoUpload(event) {
                       stroke="currentColor"
                       stroke-width="1.8"
                     />
-                    <circle cx="12" cy="9" r="2.5" stroke="currentColor" stroke-width="1.8" />
+                    <circle
+                      cx="12"
+                      cy="9"
+                      r="2.5"
+                      stroke="currentColor"
+                      stroke-width="1.8"
+                    />
                   </svg>
                 </div>
                 <h2>Alamat</h2>
               </div>
-              <button type="button" class="add-address-button" @click="bukaEditAlamat">
+              <button
+                type="button"
+                class="add-address-button"
+                @click="bukaEditAlamat"
+              >
                 <span>⊕</span> Tambah Alamat
               </button>
             </div>
@@ -557,9 +709,23 @@ function handlePhotoUpload(event) {
             <div class="address-box">
               <div class="address-home-icon">
                 <svg viewBox="0 0 24 24" fill="none">
-                  <path d="M3 10.5 12 3l9 7.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
-                  <path d="M5.5 10v10h13V10" stroke="currentColor" stroke-width="1.8" />
-                  <path d="M9.5 20v-5h5v5" stroke="currentColor" stroke-width="1.8" />
+                  <path
+                    d="M3 10.5 12 3l9 7.5"
+                    stroke="currentColor"
+                    stroke-width="1.8"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  />
+                  <path
+                    d="M5.5 10v10h13V10"
+                    stroke="currentColor"
+                    stroke-width="1.8"
+                  />
+                  <path
+                    d="M9.5 20v-5h5v5"
+                    stroke="currentColor"
+                    stroke-width="1.8"
+                  />
                 </svg>
               </div>
 
@@ -570,48 +736,68 @@ function handlePhotoUpload(event) {
               </div>
 
               <button type="button" class="address-more">⋮</button>
-              <button type="button" class="change-address-button" @click="bukaEditAlamat">
+              <button
+                type="button"
+                class="change-address-button"
+                @click="bukaEditAlamat"
+              >
                 Ubah
               </button>
             </div>
           </div>
         </section>
 
-        <!-- ================= RIWAYAT PESANAN ================= -->
-        <section v-else-if="route.path === '/riwayat-pesanan'" class="profile-center">
+        <!-- RIWAYAT PESANAN -->
+        <section
+          v-else-if="route.path === '/riwayat-pesanan'"
+          class="profile-center"
+        >
           <div class="profile-card orders-card">
             <div class="orders-heading">
               <div>
                 <h1>Riwayat Pesanan</h1>
-                <p>Pantau dan lihat pesanan produk UMKM yang pernah kamu lakukan.</p>
+                <p>
+                  Pantau dan lihat pesanan produk UMKM yang pernah kamu lakukan.
+                </p>
               </div>
               <div class="orders-heading-icon">
                 <svg viewBox="0 0 24 24" fill="none">
-                  <path d="M6 3.5h12v17H6z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" />
-                  <path d="M9 7h6M9 10.5h6M9 14h4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" />
+                  <path
+                    d="M6 3.5h12v17H6z"
+                    stroke="currentColor"
+                    stroke-width="1.8"
+                    stroke-linejoin="round"
+                  />
+                  <path
+                    d="M9 7h6M9 10.5h6M9 14h4"
+                    stroke="currentColor"
+                    stroke-width="1.8"
+                    stroke-linecap="round"
+                  />
                 </svg>
               </div>
             </div>
 
             <div class="orders-divider"></div>
 
-            <!-- LOADING -->
             <div v-if="ordersLoading" class="orders-empty">
               <div class="orders-empty-icon">⏳</div>
               <h2>Memuat riwayat pesanan...</h2>
             </div>
 
-            <!-- ERROR -->
             <div v-else-if="ordersError" class="orders-empty">
               <div class="orders-empty-icon">!</div>
               <h2>Gagal memuat pesanan</h2>
               <p>{{ ordersError }}</p>
-              <button type="button" class="orders-shop-button" @click="loadOrders">
+              <button
+                type="button"
+                class="orders-shop-button"
+                @click="loadOrders"
+              >
                 Coba Lagi
               </button>
             </div>
 
-            <!-- KOSONG -->
             <div v-else-if="orders.length === 0" class="orders-empty">
               <div class="orders-empty-icon">
                 <svg viewBox="0 0 24 24" fill="none">
@@ -631,27 +817,35 @@ function handlePhotoUpload(event) {
               </div>
               <h2>Belum Ada Pesanan</h2>
               <p>
-                Kamu belum memiliki pesanan. Yuk, jelajahi produk UMKM lokal
-                dan temukan produk favoritmu!
+                Kamu belum memiliki pesanan. Yuk, jelajahi produk UMKM lokal dan
+                temukan produk favoritmu!
               </p>
-              <button type="button" class="orders-shop-button" @click="router.push('/')">
+              <button
+                type="button"
+                class="orders-shop-button"
+                @click="router.push('/')"
+              >
                 Jelajahi Produk
               </button>
             </div>
 
-            <!-- DAFTAR PESANAN -->
             <div v-else class="orders-list">
               <article
                 v-for="order in orders"
-                :key="order.rawId"
+                :key="order.rawId || order.id"
                 class="order-item"
               >
                 <div class="order-item-header">
                   <div>
                     <strong>{{ order.id }}</strong>
-                    <p>{{ new Date(order.createdAt).toLocaleString("id-ID") }}</p>
+                    <p>
+                      {{ new Date(order.createdAt).toLocaleString("id-ID") }}
+                    </p>
                   </div>
-                  <span class="order-status" :class="`order-status--${order.status}`">
+                  <span
+                    class="order-status"
+                    :class="`order-status--${order.status}`"
+                  >
                     {{ statusLabel(order.status) }}
                   </span>
                 </div>
@@ -668,7 +862,10 @@ function handlePhotoUpload(event) {
                   <img v-if="item.image" :src="item.image" :alt="item.name" />
                   <div class="order-product-info">
                     <strong>{{ item.name }}</strong>
-                    <span>{{ item.qty }} produk × {{ formatRupiah(item.price) }}</span>
+                    <span
+                      >{{ item.qty }} produk ×
+                      {{ formatRupiah(item.price) }}</span
+                    >
                   </div>
                   <strong>{{ formatRupiah(item.qty * item.price) }}</strong>
                 </div>
@@ -686,13 +883,18 @@ function handlePhotoUpload(event) {
           </div>
         </section>
 
-        <!-- ================= PRODUK FAVORIT ================= -->
-        <section v-else-if="route.path === '/produk-favorit'" class="profile-center">
+        <!-- PRODUK FAVORIT -->
+        <section
+          v-else-if="route.path === '/produk-favorit'"
+          class="profile-center"
+        >
           <div class="profile-card favorites-card">
             <div class="favorites-heading">
               <div>
                 <h1>Produk Favorit</h1>
-                <p>Kumpulan produk UMKM yang kamu sukai dan ingin kamu simpan.</p>
+                <p>
+                  Kumpulan produk UMKM yang kamu sukai dan ingin kamu simpan.
+                </p>
               </div>
               <div class="favorites-heading-icon">
                 <svg viewBox="0 0 24 24" fill="none">
@@ -723,10 +925,14 @@ function handlePhotoUpload(event) {
               </div>
               <h2>Belum Ada Produk Favorit</h2>
               <p>
-                Simpan produk yang kamu sukai agar lebih mudah ditemukan
-                kembali nanti.
+                Simpan produk yang kamu sukai agar lebih mudah ditemukan kembali
+                nanti.
               </p>
-              <button type="button" class="favorites-shop-button" @click="router.push('/')">
+              <button
+                type="button"
+                class="favorites-shop-button"
+                @click="router.push('/')"
+              >
                 Jelajahi Produk
               </button>
             </div>
@@ -778,9 +984,8 @@ function handlePhotoUpload(event) {
           </div>
         </section>
 
-        <!-- ================= RIGHT SIDEBAR (hanya di /profil) ================= -->
+        <!-- RIGHT COLUMN -->
         <aside v-if="route.path === '/profil'" class="right-column">
-
           <div class="profile-card summary-card">
             <h2>Ringkasan Akun</h2>
             <div class="summary-divider"></div>
@@ -793,8 +998,21 @@ function handlePhotoUpload(event) {
             <div class="summary-item">
               <span class="summary-icon">
                 <svg viewBox="0 0 24 24" fill="none">
-                  <rect x="7" y="3" width="10" height="18" rx="2" stroke="currentColor" stroke-width="1.8" />
-                  <path d="M10 6h4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" />
+                  <rect
+                    x="7"
+                    y="3"
+                    width="10"
+                    height="18"
+                    rx="2"
+                    stroke="currentColor"
+                    stroke-width="1.8"
+                  />
+                  <path
+                    d="M10 6h4"
+                    stroke="currentColor"
+                    stroke-width="1.8"
+                    stroke-linecap="round"
+                  />
                   <circle cx="12" cy="18" r="0.9" fill="currentColor" />
                 </svg>
               </span>
@@ -804,8 +1022,21 @@ function handlePhotoUpload(event) {
             <div class="summary-item">
               <span class="summary-icon">
                 <svg viewBox="0 0 24 24" fill="none">
-                  <rect x="4" y="5" width="16" height="15" rx="2" stroke="currentColor" stroke-width="1.8" />
-                  <path d="M8 3v4M16 3v4M4 9h16" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" />
+                  <rect
+                    x="4"
+                    y="5"
+                    width="16"
+                    height="15"
+                    rx="2"
+                    stroke="currentColor"
+                    stroke-width="1.8"
+                  />
+                  <path
+                    d="M8 3v4M16 3v4M4 9h16"
+                    stroke="currentColor"
+                    stroke-width="1.8"
+                    stroke-linecap="round"
+                  />
                   <path
                     d="M8 13h.01M12 13h.01M16 13h.01M8 17h.01M12 17h.01"
                     stroke="currentColor"
@@ -825,10 +1056,30 @@ function handlePhotoUpload(event) {
             <div class="summary-item">
               <span class="summary-icon">
                 <svg viewBox="0 0 24 24" fill="none">
-                  <path d="M4 10h16" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" />
-                  <path d="M5 10v9h14v-9" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" />
-                  <path d="M4 10 6 5h12l2 5" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" />
-                  <path d="M9 19v-5h6v5" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" />
+                  <path
+                    d="M4 10h16"
+                    stroke="currentColor"
+                    stroke-width="1.8"
+                    stroke-linecap="round"
+                  />
+                  <path
+                    d="M5 10v9h14v-9"
+                    stroke="currentColor"
+                    stroke-width="1.8"
+                    stroke-linejoin="round"
+                  />
+                  <path
+                    d="M4 10 6 5h12l2 5"
+                    stroke="currentColor"
+                    stroke-width="1.8"
+                    stroke-linejoin="round"
+                  />
+                  <path
+                    d="M9 19v-5h6v5"
+                    stroke="currentColor"
+                    stroke-width="1.8"
+                    stroke-linejoin="round"
+                  />
                 </svg>
               </span>
               <span>Belum memiliki toko</span>
@@ -841,8 +1092,8 @@ function handlePhotoUpload(event) {
             </div>
             <h2>Data Anda Aman</h2>
             <p>
-              Kami menjaga keamanan data pribadi Anda
-              sesuai dengan standar keamanan terbaik.
+              Kami menjaga keamanan data pribadi Anda sesuai dengan standar
+              keamanan terbaik.
             </p>
           </div>
 
@@ -858,29 +1109,50 @@ function handlePhotoUpload(event) {
             </ul>
           </div>
         </aside>
-
       </div>
     </main>
 
     <!-- ================= MODAL EDIT PROFIL ================= -->
-    <div v-if="showEditModal" class="modal-overlay" @click.self="showEditModal = false">
+    <div
+      v-if="showEditModal"
+      class="modal-overlay"
+      @click.self="showEditModal = false"
+    >
       <div class="edit-modal">
-        <button type="button" class="modal-close" @click="showEditModal = false">×</button>
+        <button
+          type="button"
+          class="modal-close"
+          @click="showEditModal = false"
+        >
+          ×
+        </button>
         <h2>Edit Profil</h2>
         <p class="modal-description">Perbarui informasi pribadi Anda.</p>
 
         <div class="edit-form">
           <div class="edit-form-group">
             <label>Nama Lengkap</label>
-            <input v-model="editForm.name" type="text" placeholder="Masukkan nama lengkap" />
+            <input
+              v-model="editForm.name"
+              type="text"
+              placeholder="Masukkan nama lengkap"
+            />
           </div>
           <div class="edit-form-group">
             <label>Email</label>
-            <input v-model="editForm.email" type="email" placeholder="Masukkan email" />
+            <input
+              v-model="editForm.email"
+              type="email"
+              placeholder="Masukkan email"
+            />
           </div>
           <div class="edit-form-group">
             <label>Nomor Handphone</label>
-            <input v-model="editForm.nomorHp" type="tel" placeholder="Masukkan nomor handphone" />
+            <input
+              v-model="editForm.nomorHp"
+              type="tel"
+              placeholder="Masukkan nomor handphone"
+            />
           </div>
           <div class="edit-form-group">
             <label>Tanggal Lahir</label>
@@ -897,7 +1169,11 @@ function handlePhotoUpload(event) {
         </div>
 
         <div class="modal-actions">
-          <button type="button" class="modal-cancel-button" @click="showEditModal = false">
+          <button
+            type="button"
+            class="modal-cancel-button"
+            @click="showEditModal = false"
+          >
             Batal
           </button>
           <button type="button" class="modal-save-button" @click="simpanProfil">
@@ -908,9 +1184,19 @@ function handlePhotoUpload(event) {
     </div>
 
     <!-- ================= MODAL EDIT ALAMAT ================= -->
-    <div v-if="showAddressModal" class="modal-overlay" @click.self="showAddressModal = false">
+    <div
+      v-if="showAddressModal"
+      class="modal-overlay"
+      @click.self="showAddressModal = false"
+    >
       <div class="edit-modal address-edit-modal">
-        <button type="button" class="modal-close" @click="showAddressModal = false">×</button>
+        <button
+          type="button"
+          class="modal-close"
+          @click="showAddressModal = false"
+        >
+          ×
+        </button>
         <h2>Edit Alamat</h2>
         <p class="modal-description">Perbarui alamat utama Anda.</p>
 
@@ -919,7 +1205,11 @@ function handlePhotoUpload(event) {
             <label>Provinsi</label>
             <select v-model="provinceId">
               <option value="" disabled>Pilih provinsi</option>
-              <option v-for="province in provinces" :key="province.id" :value="province.id">
+              <option
+                v-for="province in provinces"
+                :key="province.id"
+                :value="province.id"
+              >
                 {{ province.name }}
               </option>
             </select>
@@ -939,7 +1229,11 @@ function handlePhotoUpload(event) {
             <label>Kecamatan</label>
             <select v-model="districtId" :disabled="!cityId">
               <option value="" disabled>Pilih kecamatan</option>
-              <option v-for="district in districts" :key="district.id" :value="district.id">
+              <option
+                v-for="district in districts"
+                :key="district.id"
+                :value="district.id"
+              >
                 {{ district.name }}
               </option>
             </select>
@@ -949,7 +1243,11 @@ function handlePhotoUpload(event) {
             <label>Kelurahan / Desa</label>
             <select v-model="villageId" :disabled="!districtId">
               <option value="" disabled>Pilih kelurahan / desa</option>
-              <option v-for="village in villages" :key="village.id" :value="village.id">
+              <option
+                v-for="village in villages"
+                :key="village.id"
+                :value="village.id"
+              >
                 {{ village.name }}
               </option>
             </select>
@@ -957,7 +1255,11 @@ function handlePhotoUpload(event) {
 
           <div class="edit-form-group">
             <label>Kode Pos</label>
-            <input v-model="addressForm.kodePos" type="text" placeholder="Masukkan kode pos" />
+            <input
+              v-model="addressForm.kodePos"
+              type="text"
+              placeholder="Masukkan kode pos"
+            />
           </div>
 
           <div class="edit-form-group full">
@@ -971,7 +1273,11 @@ function handlePhotoUpload(event) {
         </div>
 
         <div class="modal-actions">
-          <button type="button" class="modal-cancel-button" @click="showAddressModal = false">
+          <button
+            type="button"
+            class="modal-cancel-button"
+            @click="showAddressModal = false"
+          >
             Batal
           </button>
           <button type="button" class="modal-save-button" @click="simpanAlamat">
@@ -981,11 +1287,22 @@ function handlePhotoUpload(event) {
       </div>
     </div>
 
+    <!-- ================= MODAL LOGOUT ================= -->
+    <LogoutModal
+      v-if="showLogoutModal"
+      :loading="logoutLoading"
+      :success="logoutSuccess"
+      @confirm="konfirmasiLogout"
+      @cancel="batalLogout"
+      @done="selesaiLogout"
+    />
   </div>
 </template>
 
 <style scoped>
-* { box-sizing: border-box; }
+* {
+  box-sizing: border-box;
+}
 
 .profile-page {
   min-height: 100vh;
@@ -1019,9 +1336,17 @@ function handlePhotoUpload(event) {
   padding: 0;
 }
 
-.breadcrumb button:first-child { display: flex; }
-.breadcrumb svg { width: 20px; height: 20px; }
-.breadcrumb strong { color: #3473c2; font-weight: 500; }
+.breadcrumb button:first-child {
+  display: flex;
+}
+.breadcrumb svg {
+  width: 20px;
+  height: 20px;
+}
+.breadcrumb strong {
+  color: #3473c2;
+  font-weight: 500;
+}
 
 .profile-layout {
   display: grid;
@@ -1063,6 +1388,9 @@ function handlePhotoUpload(event) {
   font-weight: 500;
   cursor: pointer;
   text-align: left;
+  transition:
+    background 0.2s ease,
+    color 0.2s ease;
 }
 
 .sidebar-item:hover,
@@ -1092,10 +1420,22 @@ function handlePhotoUpload(event) {
   margin: 23px 2px;
 }
 
-.sidebar-item.logout { color: #172f58; }
+.sidebar-item.logout {
+  color: #b3261e;
+}
 
-/* RIWAYAT PESANAN */
-.orders-card { padding: 28px; min-height: 420px; }
+.sidebar-item.logout:hover {
+  background: #fdecea;
+  color: #b3261e;
+}
+
+/* =========================
+   RIWAYAT PESANAN
+========================= */
+.orders-card {
+  padding: 28px;
+  min-height: 420px;
+}
 
 .orders-heading {
   display: flex;
@@ -1129,7 +1469,10 @@ function handlePhotoUpload(event) {
   color: #0865d8;
 }
 
-.orders-heading-icon svg { width: 27px; height: 27px; }
+.orders-heading-icon svg {
+  width: 27px;
+  height: 27px;
+}
 
 .orders-divider {
   height: 1px;
@@ -1159,7 +1502,10 @@ function handlePhotoUpload(event) {
   font-weight: 700;
 }
 
-.orders-empty-icon svg { width: 38px; height: 38px; }
+.orders-empty-icon svg {
+  width: 38px;
+  height: 38px;
+}
 
 .orders-empty h2 {
   margin: 18px 0 8px;
@@ -1176,7 +1522,10 @@ function handlePhotoUpload(event) {
   line-height: 1.8;
 }
 
-.orders-list { display: grid; gap: 16px; }
+.orders-list {
+  display: grid;
+  gap: 16px;
+}
 
 .order-item {
   padding: 18px;
@@ -1194,7 +1543,10 @@ function handlePhotoUpload(event) {
   border-bottom: 1px solid #e8eef6;
 }
 
-.order-item-header strong { color: #142d56; font-size: 14px; }
+.order-item-header strong {
+  color: #142d56;
+  font-size: 14px;
+}
 
 .order-item-header p {
   margin: 5px 0 0;
@@ -1212,10 +1564,26 @@ function handlePhotoUpload(event) {
   white-space: nowrap;
 }
 
-.order-status--diproses   { background: #fff4d8; color: #946200; }
-.order-status--dikirim    { background: #e0f2fe; color: #0369a1; }
-.order-status--selesai    { background: #e8f8ee; color: #188a43; }
-.order-status--dibatalkan { background: #fde0e0; color: #b91c1c; }
+.order-status--diproses {
+  background: #fff4d8;
+  color: #946200;
+}
+.order-status--dikirim {
+  background: #e0f2fe;
+  color: #0369a1;
+}
+.order-status--selesai {
+  background: #e8f8ee;
+  color: #188a43;
+}
+.order-status--dibatalkan {
+  background: #fde0e0;
+  color: #b91c1c;
+}
+.order-status--menunggu_pembayaran {
+  background: #fef3c7;
+  color: #92400e;
+}
 
 .order-shop {
   margin: 14px 0;
@@ -1238,10 +1606,23 @@ function handlePhotoUpload(event) {
   object-fit: cover;
 }
 
-.order-product-info { display: grid; flex: 1; gap: 5px; }
-.order-product-info strong { color: #203b60; font-size: 13px; }
-.order-product-info span { color: #7186a2; font-size: 12px; }
-.order-product > strong { color: #203b60; font-size: 12px; }
+.order-product-info {
+  display: grid;
+  flex: 1;
+  gap: 5px;
+}
+.order-product-info strong {
+  color: #203b60;
+  font-size: 13px;
+}
+.order-product-info span {
+  color: #7186a2;
+  font-size: 12px;
+}
+.order-product > strong {
+  color: #203b60;
+  font-size: 12px;
+}
 
 .order-total {
   display: flex;
@@ -1252,7 +1633,9 @@ function handlePhotoUpload(event) {
   font-size: 13px;
 }
 
-.order-total strong { color: #0865d8; }
+.order-total strong {
+  color: #0865d8;
+}
 
 .order-payment {
   margin-top: 10px;
@@ -1272,11 +1655,16 @@ function handlePhotoUpload(event) {
   font-size: 13px;
   font-weight: 600;
   cursor: pointer;
+  transition: background 0.2s ease;
 }
 
-.orders-shop-button:hover { background: #0758bf; }
+.orders-shop-button:hover {
+  background: #0758bf;
+}
 
-/* CENTER */
+/* =========================
+   CENTER
+========================= */
 .profile-center {
   min-width: 0;
   display: flex;
@@ -1284,7 +1672,9 @@ function handlePhotoUpload(event) {
   gap: 16px;
 }
 
-.profile-header-card { padding: 26px 28px 25px; }
+.profile-header-card {
+  padding: 26px 28px 25px;
+}
 
 .profile-title-area {
   display: flex;
@@ -1321,10 +1711,15 @@ function handlePhotoUpload(event) {
   font-size: 13px;
   font-weight: 600;
   cursor: pointer;
+  transition: background 0.2s ease;
 }
 
-.edit-profile-button:hover { background: #f0f7ff; }
-.edit-profile-button span { font-size: 21px; }
+.edit-profile-button:hover {
+  background: #f0f7ff;
+}
+.edit-profile-button span {
+  font-size: 21px;
+}
 
 .profile-header-divider {
   height: 1px;
@@ -1338,7 +1733,10 @@ function handlePhotoUpload(event) {
   gap: 24px;
 }
 
-.large-avatar-wrapper { position: relative; flex-shrink: 0; }
+.large-avatar-wrapper {
+  position: relative;
+  flex-shrink: 0;
+}
 
 .large-avatar {
   width: 132px;
@@ -1355,7 +1753,11 @@ function handlePhotoUpload(event) {
   font-weight: 700;
 }
 
-.large-avatar img { width: 100%; height: 100%; object-fit: cover; }
+.large-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
 
 .camera-button {
   position: absolute;
@@ -1372,12 +1774,24 @@ function handlePhotoUpload(event) {
   justify-content: center;
   box-shadow: 0 5px 15px rgba(25, 89, 150, 0.15);
   cursor: pointer;
+  transition: background 0.2s ease;
 }
 
-.camera-button input { display: none; }
-.camera-button svg { width: 20px; height: 20px; }
+.camera-button:hover {
+  background: #f1f8ff;
+}
 
-.identity-info { min-width: 0; }
+.camera-button input {
+  display: none;
+}
+.camera-button svg {
+  width: 20px;
+  height: 20px;
+}
+
+.identity-info {
+  min-width: 0;
+}
 
 .name-row {
   display: flex;
@@ -1414,7 +1828,9 @@ function handlePhotoUpload(event) {
   font-size: 13px;
 }
 
-.information-card { padding: 19px 28px 21px; }
+.information-card {
+  padding: 19px 28px 21px;
+}
 
 .section-heading {
   display: flex;
@@ -1431,7 +1847,11 @@ function handlePhotoUpload(event) {
   justify-content: center;
 }
 
-.section-heading-icon svg { width: 27px; height: 27px; display: block; }
+.section-heading-icon svg {
+  width: 27px;
+  height: 27px;
+  display: block;
+}
 
 .section-heading h2 {
   margin: 0;
@@ -1457,9 +1877,14 @@ function handlePhotoUpload(event) {
   justify-content: center;
 }
 
-.information-item.full { grid-column: 1 / -1; }
+.information-item.full {
+  grid-column: 1 / -1;
+}
 
-.information-item span { color: #597596; font-size: 12px; }
+.information-item span {
+  color: #597596;
+  font-size: 12px;
+}
 
 .information-item strong {
   margin-top: 2px;
@@ -1468,7 +1893,9 @@ function handlePhotoUpload(event) {
   font-weight: 500;
 }
 
-.address-card { padding: 18px 28px 22px; }
+.address-card {
+  padding: 18px 28px 22px;
+}
 
 .address-header {
   display: flex;
@@ -1476,7 +1903,10 @@ function handlePhotoUpload(event) {
   justify-content: space-between;
 }
 
-.location-icon svg { width: 25px; height: 25px; }
+.location-icon svg {
+  width: 25px;
+  height: 25px;
+}
 
 .add-address-button {
   height: 41px;
@@ -1492,10 +1922,15 @@ function handlePhotoUpload(event) {
   font-size: 13px;
   font-weight: 600;
   cursor: pointer;
+  transition: background 0.2s ease;
 }
 
-.add-address-button:hover { background: #f1f8ff; }
-.add-address-button span { font-size: 20px; }
+.add-address-button:hover {
+  background: #f1f8ff;
+}
+.add-address-button span {
+  font-size: 20px;
+}
 
 .address-box {
   position: relative;
@@ -1514,9 +1949,14 @@ function handlePhotoUpload(event) {
   color: #0865d8;
 }
 
-.address-home-icon svg { width: 20px; height: 20px; }
+.address-home-icon svg {
+  width: 20px;
+  height: 20px;
+}
 
-.address-content { min-width: 0; }
+.address-content {
+  min-width: 0;
+}
 
 .main-address-label {
   display: inline-block;
@@ -1567,9 +2007,16 @@ function handlePhotoUpload(event) {
   font-size: 13px;
   font-weight: 600;
   cursor: pointer;
+  transition: background 0.2s ease;
 }
 
-/* RIGHT COLUMN */
+.change-address-button:hover {
+  background: #d7e8ff;
+}
+
+/* =========================
+   RIGHT COLUMN
+========================= */
 .right-column {
   min-width: 0;
   display: flex;
@@ -1577,7 +2024,9 @@ function handlePhotoUpload(event) {
   gap: 16px;
 }
 
-.summary-card { padding: 21px 24px; }
+.summary-card {
+  padding: 21px 24px;
+}
 
 .summary-card h2 {
   margin: 0;
@@ -1601,7 +2050,9 @@ function handlePhotoUpload(event) {
   font-size: 13px;
 }
 
-.summary-item:last-child { border-bottom: none; }
+.summary-item:last-child {
+  border-bottom: none;
+}
 
 .summary-icon {
   width: 28px;
@@ -1613,7 +2064,11 @@ function handlePhotoUpload(event) {
   flex-shrink: 0;
 }
 
-.summary-icon svg { width: 22px; height: 22px; display: block; }
+.summary-icon svg {
+  width: 22px;
+  height: 22px;
+  display: block;
+}
 
 .security-card {
   min-height: 230px;
@@ -1648,7 +2103,9 @@ function handlePhotoUpload(event) {
   line-height: 1.55;
 }
 
-.tips-card { padding: 22px 25px; }
+.tips-card {
+  padding: 22px 25px;
+}
 
 .tips-title {
   display: flex;
@@ -1678,7 +2135,9 @@ function handlePhotoUpload(event) {
   line-height: 1.5;
 }
 
-.tips-card li:last-child { margin-bottom: 0; }
+.tips-card li:last-child {
+  margin-bottom: 0;
+}
 
 .tips-card li span {
   width: 22px;
@@ -1694,7 +2153,9 @@ function handlePhotoUpload(event) {
   font-weight: 700;
 }
 
-/* MODAL */
+/* =========================
+   MODAL
+========================= */
 .modal-overlay {
   position: fixed;
   inset: 0;
@@ -1743,7 +2204,9 @@ function handlePhotoUpload(event) {
   gap: 7px;
 }
 
-.edit-form-group.full { grid-column: 1 / -1; }
+.edit-form-group.full {
+  grid-column: 1 / -1;
+}
 
 .edit-form-group label {
   color: #263f66;
@@ -1766,9 +2229,14 @@ function handlePhotoUpload(event) {
 }
 
 .edit-form-group input,
-.edit-form-group select { height: 45px; }
+.edit-form-group select {
+  height: 45px;
+}
 
-.edit-form-group textarea { resize: vertical; min-height: 100px; }
+.edit-form-group textarea {
+  resize: vertical;
+  min-height: 100px;
+}
 
 .edit-form-group input:focus,
 .edit-form-group select:focus,
@@ -1812,7 +2280,9 @@ function handlePhotoUpload(event) {
   color: #55708f;
 }
 
-.modal-cancel-button:hover { background: #eaf1f8; }
+.modal-cancel-button:hover {
+  background: #eaf1f8;
+}
 
 .modal-save-button {
   border: none;
@@ -1820,10 +2290,17 @@ function handlePhotoUpload(event) {
   color: #ffffff;
 }
 
-.modal-save-button:hover { background: #0758bf; }
+.modal-save-button:hover {
+  background: #0758bf;
+}
 
-/* PRODUK FAVORIT */
-.favorites-card { min-width: 0; padding: 28px; }
+/* =========================
+   PRODUK FAVORIT
+========================= */
+.favorites-card {
+  min-width: 0;
+  padding: 28px;
+}
 
 .favorites-heading {
   display: flex;
@@ -1857,7 +2334,10 @@ function handlePhotoUpload(event) {
   color: #0865d8;
 }
 
-.favorites-heading-icon svg { width: 27px; height: 27px; }
+.favorites-heading-icon svg {
+  width: 27px;
+  height: 27px;
+}
 
 .favorites-divider {
   height: 1px;
@@ -1885,7 +2365,10 @@ function handlePhotoUpload(event) {
   color: #0865d8;
 }
 
-.favorites-empty-icon svg { width: 38px; height: 38px; }
+.favorites-empty-icon svg {
+  width: 38px;
+  height: 38px;
+}
 
 .favorites-empty h2 {
   margin: 18px 0 8px;
@@ -1913,12 +2396,17 @@ function handlePhotoUpload(event) {
   font-size: 12px;
   font-weight: 600;
   cursor: pointer;
+  transition: background 0.2s ease;
 }
 
-.favorites-shop-button { margin-top: 20px; }
+.favorites-shop-button {
+  margin-top: 20px;
+}
 
 .favorites-shop-button:hover,
-.favorite-detail-button:hover { background: #0758bf; }
+.favorite-detail-button:hover {
+  background: #0758bf;
+}
 
 .favorites-grid {
   display: grid;
@@ -1932,7 +2420,9 @@ function handlePhotoUpload(event) {
   border: 1px solid #e2eaf3;
   border-radius: 12px;
   background: #fff;
-  transition: box-shadow 0.2s ease, transform 0.2s ease;
+  transition:
+    box-shadow 0.2s ease,
+    transform 0.2s ease;
 }
 
 .favorite-product-card:hover {
@@ -1974,12 +2464,20 @@ function handlePhotoUpload(event) {
   background: #fff;
   color: #e14b67;
   cursor: pointer;
+  transition: background 0.2s ease;
 }
 
-.favorite-remove-button svg { width: 19px; height: 19px; }
-.favorite-remove-button:hover { background: #fff0f3; }
+.favorite-remove-button svg {
+  width: 19px;
+  height: 19px;
+}
+.favorite-remove-button:hover {
+  background: #fff0f3;
+}
 
-.favorite-product-info { padding: 14px; }
+.favorite-product-info {
+  padding: 14px;
+}
 
 .favorite-product-info h3 {
   margin: 0;
@@ -1995,23 +2493,40 @@ function handlePhotoUpload(event) {
   font-weight: 700;
 }
 
-.favorite-detail-button { width: 100%; }
+.favorite-detail-button {
+  width: 100%;
+}
 
-/* RESPONSIVE */
+/* =========================
+   RESPONSIVE
+========================= */
+/* =========================
+   RESPONSIVE
+========================= */
 @media (max-width: 1200px) {
-  .profile-layout { grid-template-columns: 230px minmax(0, 1fr); }
+  .profile-layout {
+    grid-template-columns: 230px minmax(0, 1fr);
+  }
   .right-column {
     grid-column: 2;
     display: grid;
     grid-template-columns: 1fr 1fr;
   }
-  .tips-card { grid-column: 1 / -1; }
+  .tips-card {
+    grid-column: 1 / -1;
+  }
 }
 
 @media (max-width: 900px) {
-  .profile-main { width: min(100% - 30px, 700px); }
-  .profile-layout { grid-template-columns: 1fr; }
-  .profile-sidebar { min-height: auto; }
+  .profile-main {
+    width: min(100% - 30px, 700px);
+  }
+  .profile-layout {
+    grid-template-columns: 1fr;
+  }
+  .profile-sidebar {
+    min-height: auto;
+  }
   .right-column {
     grid-column: auto;
     display: flex;
@@ -2019,31 +2534,234 @@ function handlePhotoUpload(event) {
 }
 
 @media (max-width: 600px) {
-  .profile-main { padding-top: 12px; }
-  .profile-layout { gap: 12px; }
-  .profile-title-area { align-items: flex-start; flex-direction: column; }
-  .profile-identity { align-items: flex-start; flex-direction: column; }
-  .information-grid { grid-template-columns: 1fr; }
-  .information-item.full { grid-column: auto; }
-  .address-header { align-items: flex-start; gap: 10px; flex-direction: column; }
-  .address-box { padding-right: 20px; }
-  .change-address-button { position: static; margin-top: 15px; }
-  .breadcrumb { font-size: 11px; gap: 7px; }
+  .profile-main {
+    padding-top: 12px;
+  }
+  .profile-layout {
+    gap: 12px;
+  }
+  .profile-title-area {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+  .profile-identity {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+  .information-grid {
+    grid-template-columns: 1fr;
+  }
+  .information-item.full {
+    grid-column: auto;
+  }
+  .address-header {
+    align-items: flex-start;
+    gap: 10px;
+    flex-direction: column;
+  }
+  .address-box {
+    padding-right: 20px;
+  }
+  .change-address-button {
+    position: static;
+    margin-top: 15px;
+  }
+  .breadcrumb {
+    font-size: 11px;
+    gap: 7px;
+  }
 
-  .orders-card { padding: 22px 18px; }
-  .orders-heading h1 { font-size: 22px; }
-  .orders-heading-icon { width: 42px; height: 42px; }
+  .orders-card {
+    padding: 22px 18px;
+  }
+  .orders-heading h1 {
+    font-size: 22px;
+  }
+  .orders-heading-icon {
+    width: 42px;
+    height: 42px;
+  }
 
-  .favorites-card { padding: 22px 18px; }
-  .favorites-heading h1 { font-size: 22px; }
-  .favorites-grid { grid-template-columns: 1fr; }
-  .favorite-product-image { height: 200px; }
+  .favorites-card {
+    padding: 22px 18px;
+  }
+  .favorites-heading h1 {
+    font-size: 22px;
+  }
+  .favorites-grid {
+    grid-template-columns: 1fr;
+  }
+  .favorite-product-image {
+    height: 200px;
+  }
 
-  .edit-modal { padding: 24px 20px; }
-  .edit-form { grid-template-columns: 1fr; }
-  .edit-form-group.full { grid-column: auto; }
-  .modal-actions { flex-direction: column; }
+  .edit-modal {
+    padding: 24px 20px;
+  }
+  .edit-form {
+    grid-template-columns: 1fr;
+  }
+  .edit-form-group.full {
+    grid-column: auto;
+  }
+  .modal-actions {
+    flex-direction: column;
+  }
   .modal-cancel-button,
-  .modal-save-button { width: 100%; }
+  .modal-save-button {
+    width: 100%;
+  }
+}
+
+@media (max-width: 420px) {
+  .profile-main {
+    width: calc(100% - 24px);
+    padding: 8px 0 30px;
+  }
+
+  .profile-layout {
+    gap: 10px;
+  }
+
+  .profile-sidebar {
+    padding: 14px;
+  }
+
+  .sidebar-item {
+    height: 46px;
+    font-size: 14px;
+    gap: 14px;
+  }
+
+  .profile-header-card {
+    padding: 20px 18px;
+  }
+
+  .profile-title-area h1 {
+    font-size: 22px;
+  }
+
+  .edit-profile-button {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .large-avatar {
+    width: 108px;
+    height: 108px;
+    font-size: 38px;
+  }
+
+  .name-row h2 {
+    font-size: 19px;
+  }
+
+  .information-card,
+  .address-card {
+    padding: 16px 18px;
+  }
+
+  .section-heading h2 {
+    font-size: 17px;
+  }
+
+  .information-item {
+    padding: 8px 14px;
+    min-height: 58px;
+  }
+
+  .information-item strong {
+    font-size: 14px;
+  }
+
+  .address-box {
+    padding: 14px 16px 14px 52px;
+  }
+
+  .address-home-icon {
+    left: 14px;
+    top: 14px;
+  }
+
+  .address-content h3 {
+    font-size: 14px;
+  }
+
+  .address-content p {
+    font-size: 12px;
+  }
+
+  .summary-card {
+    padding: 18px 20px;
+  }
+
+  .summary-item {
+    gap: 12px;
+    font-size: 12px;
+  }
+
+  .summary-icon {
+    width: 24px;
+    height: 24px;
+  }
+
+  .summary-icon svg {
+    width: 18px;
+    height: 18px;
+  }
+
+  .orders-card {
+    padding: 18px 14px;
+  }
+
+  .orders-heading h1 {
+    font-size: 20px;
+  }
+
+  .order-item {
+    padding: 14px;
+  }
+
+  .order-product img {
+    width: 48px;
+    height: 48px;
+  }
+
+  .order-product-info strong {
+    font-size: 12px;
+  }
+
+  .order-product-info span {
+    font-size: 11px;
+  }
+
+  .order-total strong {
+    font-size: 14px;
+  }
+
+  .favorites-card {
+    padding: 18px 14px;
+  }
+
+  .favorites-heading h1 {
+    font-size: 20px;
+  }
+
+  .favorite-product-image {
+    height: 170px;
+  }
+
+  .sidebar-item.logout {
+    font-size: 13px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .favorite-product-card,
+  .sidebar-item,
+  .edit-profile-button,
+  .camera-button {
+    transition: none;
+  }
 }
 </style>
