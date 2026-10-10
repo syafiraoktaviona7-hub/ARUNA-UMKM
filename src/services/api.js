@@ -80,6 +80,23 @@ export const customer = {
   laporan: (body) => api.post("/laporan", body), // target_tipe, target_id, alasan
 };
 
+// ---- Penjual ----
+export const penjual = {
+  dashboard: () => api.get("/penjual/dashboard"),
+
+  produk: () => api.get("/penjual/produk"),
+  produkBuat: (body) => api.post("/penjual/produk", body),
+  produkUpdate: (id, body) => api.put(`/penjual/produk/${id}`, body),
+  produkHapus: (id) => api.delete(`/penjual/produk/${id}`),
+
+  pesanan: (params) => api.get("/penjual/pesanan", params),
+  pesananDetail: (id) => api.get(`/penjual/pesanan/${id}`),
+  pesananUbahStatus: (id, status) => api.patch(`/penjual/pesanan/${id}/status`, { status }),
+
+  profil: () => api.get("/penjual/profil"),
+  profilUpdate: (body) => api.put("/penjual/profil", body),
+};
+
 // ---- Admin ----
 export const admin = {
   dashboard: () => api.get("/admin/dashboard"),

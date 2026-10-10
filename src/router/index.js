@@ -12,6 +12,11 @@ import CheckoutPage from "@/views/CheckoutPage.vue";
 import ProdukDetailPage from "@/views/ProdukDetailPage.vue";
 import UmkmDetailPage from "@/views/UmkmDetailPage.vue";
 import JasaDetailPage from "@/views/JasaDetailPage.vue";
+import PenjualLayout from "@/layouts/PenjualLayout.vue";
+import PenjualDashboard from "@/views/penjual/DashboardPage.vue";
+import PenjualProduk from "@/views/penjual/ProdukPage.vue";
+import PenjualPesanan from "@/views/penjual/PesananPage.vue";
+import PenjualProfil from "@/views/penjual/ProfilTokoPage.vue";
 
 import { katalog } from "@/services/api";
 import { jasaList } from "@/data/jasa";
@@ -170,6 +175,35 @@ const router = createRouter({
             },
         },
 
+                // ---------- PENJUAL ----------
+        {
+            path: "/penjual",
+            component: PenjualLayout,
+            meta: { requiresAuth: true, role: "penjual" },
+            children: [
+                {
+                    path: "",
+                    name: "penjual-dashboard",
+                    component: PenjualDashboard,
+                },
+                {
+                    path: "produk",
+                    name: "penjual-produk",
+                    component: PenjualProduk,
+                },
+                {
+                    path: "pesanan",
+                    name: "penjual-pesanan",
+                    component: PenjualPesanan,
+                },
+                {
+                    path: "profil",
+                    name: "penjual-profil",
+                    component: PenjualProfil,
+                },
+            ],
+        },
+
         // ROUTE ADMIN
         ...adminRoutes,
 
@@ -208,5 +242,24 @@ const router = createRouter({
 
 // Pasang guard admin
 installAdminGuard(router);
+
+import { useAuth } from "@/composables/useAuth";
+
+router.beforeEach((to) => {
+    const { isLoggedIn, user } = useAuth();
+
+    if (to.meta.requiresAuth && !isLoggedIn.value) {
+        return {
+            name: "login",
+            query: { redirect: to.fullPath },
+        };
+    }
+
+    if (to.meta.role && user.value?.role !== to.meta.role) {
+        return { name: "home" };
+    }
+
+    return true;
+});
 
 export default router;

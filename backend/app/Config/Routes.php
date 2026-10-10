@@ -42,6 +42,27 @@ $routes->group('api', ['namespace' => 'App\Controllers\Api'], static function (R
         $routes->post('laporan', 'Customer::laporanBuat');
     });
 
+        // ---------- Penjual ----------
+    $routes->group('penjual', ['filter' => 'auth:penjual'], static function (RouteCollection $routes) {
+        $routes->get('dashboard', 'Penjual::dashboard');
+
+        // Produk
+        $routes->get('produk',                  'Penjual::produkList');
+        $routes->post('produk',                 'Penjual::produkBuat');
+        $routes->put('produk/(:num)',           'Penjual::produkUpdate/$1');
+        $routes->delete('produk/(:num)',        'Penjual::produkHapus/$1');
+
+        // Pesanan
+        $routes->get('pesanan',                 'Penjual::pesananList');
+        $routes->get('pesanan/(:num)',          'Penjual::pesananDetail/$1');
+        $routes->patch('pesanan/(:num)/status', 'Penjual::pesananUbahStatus/$1');
+
+        // Profil toko
+        $routes->get('profil',                  'Penjual::profil');
+        $routes->put('profil',                  'Penjual::profilUpdate');
+    });
+
+
     // ---------- Admin ----------
     $routes->group('admin', ['filter' => 'auth:admin'], static function (RouteCollection $routes) {
         $routes->get('dashboard', 'Admin::dashboard');
