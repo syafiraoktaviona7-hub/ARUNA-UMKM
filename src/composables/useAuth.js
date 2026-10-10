@@ -1,12 +1,10 @@
 import { reactive, computed } from "vue";
 import { api, otp, getToken, setToken } from "@/services/api";
 
-
 const STORAGE_KEY = "aruna_auth";
 
 function loadUser() {
   try {
-    // Tanpa token berarti sesi lama (sebelum ada backend): anggap belum login
     if (!getToken()) return null;
     const raw = localStorage.getItem(STORAGE_KEY);
     return raw ? JSON.parse(raw) : null;
@@ -15,7 +13,6 @@ function loadUser() {
   }
 }
 
-// State login dibuat bersama agar bisa dipakai semua komponen
 const state = reactive({ user: loadUser() });
 
 function simpanSesi(user, token) {
@@ -24,8 +21,8 @@ function simpanSesi(user, token) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(user));
 }
 
-// Foto profil masih disimpan di browser (belum ada upload ke server): jangan sampai hilang
-const denganFoto = (u) => (state.user?.photo ? { ...u, photo: state.user.photo } : u);
+const denganFoto = (u) =>
+  state.user?.photo ? { ...u, photo: state.user.photo } : u;
 
 function hapusSesi() {
   state.user = null;
@@ -33,9 +30,8 @@ function hapusSesi() {
   localStorage.removeItem(STORAGE_KEY);
 
   // Bersihkan data terkait user
-  localStorage.removeItem("aruna_cart");           // keranjang
-  localStorage.removeItem("aruna_checkout");       // checkout yang belum selesai
-  // (opsional: kalau mau favorit juga hilang, un-comment baris di bawah)
+  localStorage.removeItem("aruna_cart");
+  localStorage.removeItem("aruna_checkout");
   // localStorage.removeItem("aruna_favorites");
 }
 
@@ -49,8 +45,6 @@ export function useAuth() {
   const isSeller = computed(() => state.user?.role === "penjual");
   const isCustomer = computed(() => state.user?.role === "customer");
 
-  // PENTING: sekarang async. Panggil dengan `await registerUser(...)`.
-  // Tidak otomatis login, sama seperti sebelumnya: pengguna lanjut ke halaman login.
   async function registerUser(accountData) {
     const res = await api.post("/auth/register", accountData);
     return res.user;
@@ -62,12 +56,18 @@ export function useAuth() {
     return res.user;
   }
 
-  // Tetap disediakan supaya kode lama yang memakai loginAdmin tidak rusak
+  // Login khusus admin — memvalidasi role di sisi frontend
   async function loginAdmin(email, password) {
-    return login(email, password);
+    const res = await api.post("/auth/login", { email, password });
+
+    if (res.user?.role !== "admin") {
+      throw new Error("Akun ini bukan akun admin.");
+    }
+
+    simpanSesi(res.user, res.token);
+    return res.user;
   }
 
-  // PENTING: sekarang async. Panggil dengan `await updateUser(...)`.
   async function updateUser(updates) {
     if (!state.user) throw new Error("Tidak ada pengguna yang sedang login.");
     const updated = await api.put("/auth/me", updates);
@@ -76,7 +76,6 @@ export function useAuth() {
     return hasil;
   }
 
-  // Sinkronkan data user dari server (mis. status UMKM berubah setelah diverifikasi admin)
   async function refreshUser() {
     if (!getToken()) return null;
     const me = await api.get("/auth/me");
@@ -94,7 +93,6 @@ export function useAuth() {
   async function verifyOtp(phone, code, tujuan = "login") {
     const res = await otp.verify(phone, code, tujuan);
 
-    // Kalau nomor sudah terdaftar → otomatis login
     if (res.registered && res.token && res.user) {
       simpanSesi(res.user, res.token);
     }
@@ -118,7 +116,7 @@ export function useAuth() {
     updateUser,
     refreshUser,
     logout,
-    requestOtp,   
-    verifyOtp, 
+    requestOtp,
+    verifyOtp,
   };
 }

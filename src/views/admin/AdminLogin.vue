@@ -3,12 +3,11 @@ import { ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { useAuth } from "@/composables/useAuth";
 
-// Ganti gambar latar panel kiri: taruh file di public/images/ lalu ubah nama di sini
 const bgImage = "/images/aruna-hero.png";
 
 const route = useRoute();
 const router = useRouter();
-const { loginAdmin, logout } = useAuth();
+const { loginAdmin } = useAuth();
 
 const email = ref("");
 const password = ref("");
@@ -26,17 +25,13 @@ async function handleSubmit() {
 
   loading.value = true;
   try {
-    const akun = await loginAdmin(email.value, password.value);
-    if (akun.role !== "admin") {
-      logout();
-      throw new Error("Akun ini bukan akun admin.");
-    }
+    await loginAdmin(email.value, password.value);
 
-    // Hanya terima redirect ke halaman admin agar tidak jadi open redirect
+    // Hanya izinkan redirect ke halaman admin
     const target = String(route.query.redirect || "");
     router.replace(target.startsWith("/admin") ? target : "/admin");
   } catch (e) {
-    error.value = e.message;
+    error.value = e.message || "Gagal masuk. Coba lagi.";
   } finally {
     loading.value = false;
   }
@@ -49,7 +44,10 @@ async function handleSubmit() {
       <span class="tag">Panel Admin</span>
       <div class="copy">
         <h2>Semua UMKM terdaftar, terpantau rapi.</h2>
-        <p>Periksa pendaftaran, atur produk, dan tindak laporan customer dari satu panel.</p>
+        <p>
+          Periksa pendaftaran, atur produk, dan tindak laporan customer
+          dari satu panel.
+        </p>
       </div>
     </aside>
 
@@ -123,7 +121,7 @@ async function handleSubmit() {
   color: var(--ink);
 }
 
-/* Panel kiri: gambar bebas + lapisan biru. Kalau gambar tidak ada, tampil gradasi biru. */
+/* Panel kiri */
 .hero {
   position: relative;
   display: flex;
@@ -258,6 +256,7 @@ input:focus-visible {
   background: transparent;
   border: 0;
   border-radius: 8px;
+  cursor: pointer;
 }
 
 .error {
@@ -277,6 +276,7 @@ input:focus-visible {
   background: var(--blue);
   border: 0;
   border-radius: var(--radius);
+  cursor: pointer;
   transition: background 0.15s;
 }
 
@@ -287,16 +287,6 @@ input:focus-visible {
 .submit:disabled {
   opacity: 0.65;
   cursor: wait;
-}
-
-.demo {
-  margin-top: 20px;
-  padding: 10px 12px;
-  font-size: 0.85rem;
-  color: var(--muted);
-  background: var(--bg);
-  border: 1px dashed var(--line);
-  border-radius: 8px;
 }
 
 .back {
@@ -310,41 +300,33 @@ input:focus-visible {
   .hero {
     padding: 28px;
   }
-
   .copy h2 {
     font-size: 1.7rem;
   }
 }
 
-/* Tablet dan HP: gambar jadi banner di atas, form langsung di bawahnya */
 @media (max-width: 820px) {
   .login {
     grid-template-columns: minmax(0, 1fr);
     grid-template-rows: auto 1fr;
   }
-
   .hero {
     min-height: 170px;
     padding: 20px;
   }
-
   .copy p {
     display: none;
   }
-
   .copy h2 {
     font-size: 1.25rem;
   }
-
   .panel {
     align-items: start;
     padding: 20px 16px 32px;
   }
-
   .card {
     padding: 28px 22px;
   }
-
   .logo-link img {
     height: 48px;
   }

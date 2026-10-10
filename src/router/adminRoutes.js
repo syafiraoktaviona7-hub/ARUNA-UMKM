@@ -30,12 +30,24 @@ export function installAdminGuard(router) {
   router.beforeEach((to) => {
     const { isAdmin } = useAuth();
 
-    if (to.meta.requiresAdmin && !isAdmin.value) {
-      return { name: "admin-login", query: { redirect: to.fullPath } };
+    // Cek requiresAdmin di SEMUA route yang match (parent + anak)
+    const requiresAdmin = to.matched.some(
+      (r) => r.meta?.requiresAdmin
+    );
+
+    if (requiresAdmin && !isAdmin.value) {
+      return {
+        name: "admin-login",
+        query: { redirect: to.fullPath },
+      };
     }
 
-    if (to.meta.guestOnly && isAdmin.value) {
+    // Halaman login admin: kalau sudah login sebagai admin, redirect ke dashboard
+    const guestOnly = to.matched.some((r) => r.meta?.guestOnly);
+    if (guestOnly && isAdmin.value) {
       return { name: "admin-dashboard" };
     }
+
+    return true;
   });
 }
