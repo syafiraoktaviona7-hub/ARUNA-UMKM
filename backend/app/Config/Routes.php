@@ -24,6 +24,8 @@ $routes->group('api', ['namespace' => 'App\Controllers\Api'], static function (R
 
     $routes->post('auth/register', 'Auth::register');
     $routes->post('auth/login', 'Auth::login');
+    $routes->post('auth/request-otp', 'Auth::requestOtp');
+    $routes->post('auth/verify-otp',  'Auth::verifyOtp');
 
     // ---------- Semua peran yang sudah login ----------
     $routes->group('', ['filter' => 'auth'], static function (RouteCollection $routes) {

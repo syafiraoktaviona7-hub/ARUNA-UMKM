@@ -1,53 +1,111 @@
 <script setup>
-import { ref } from "vue";
-import RegisterRoleModal from "@/components/RegisterRoleModal.vue";
+import { ref, computed } from "vue";
 import { useRouter } from "vue-router";
 import { useAuth } from "@/composables/useAuth";
+import RegisterRoleModal from "@/components/RegisterRoleModal.vue";
 
 const router = useRouter();
-const { login: authLogin } = useAuth();
+const { requestOtp, verifyOtp } = useAuth();
 
 const showRegisterModal = ref(false);
 
-const email = ref("");
-const password = ref("");
-const showPassword = ref(false);
+const step = ref("phone");
+const loading = ref(false);
+const error = ref("");
+
+const inputPhone = ref("");
+const inputCode = ref("");
+const canonicalPhone = ref("");
+
+const cooldown = ref(0);
+let cooldownTimer = null;
+const canResend = computed(() => cooldown.value <= 0);
+
+function startCooldown() {
+  cooldown.value = 60;
+  if (cooldownTimer) clearInterval(cooldownTimer);
+  cooldownTimer = setInterval(() => {
+    cooldown.value--;
+    if (cooldown.value <= 0) {
+      clearInterval(cooldownTimer);
+      cooldownTimer = null;
+    }
+  }, 1000);
+}
 
 function kembaliKeBeranda() {
   router.push("/");
 }
 
-function keRegister() {
-  router.push("/register");
+function gantiNomor() {
+  step.value = "phone";
+  inputCode.value = "";
+  error.value = "";
 }
 
-async function login() {
-  if (!email.value || !password.value) {
-    alert("Silakan isi email dan password terlebih dahulu.");
+async function kirimOtp() {
+  error.value = "";
+  if (!inputPhone.value.trim()) {
+    error.value = "Silakan masukkan nomor WhatsApp Anda.";
     return;
   }
 
+  loading.value = true;
   try {
-    const user = await authLogin(email.value, password.value);
+    const res = await requestOtp(inputPhone.value, "login");
+    canonicalPhone.value = res.phone || inputPhone.value;
+    step.value = "otp";
+    startCooldown();
+  } catch (e) {
+    error.value = e.message || "Gagal mengirim OTP.";
+  } finally {
+    loading.value = false;
+  }
+}
 
-    alert(`Selamat datang, ${user.name}!`);
+async function kirimUlang() {
+  if (!canResend.value) return;
+  error.value = "";
+  loading.value = true;
+  try {
+    await requestOtp(canonicalPhone.value, "login");
+    startCooldown();
+  } catch (e) {
+    error.value = e.message || "Gagal mengirim ulang OTP.";
+  } finally {
+    loading.value = false;
+  }
+}
 
-    // Customer masuk ke dashboard customer
-    if (user.role === "customer") {
-      router.push("/");
+async function verifikasi() {
+  error.value = "";
+  if (inputCode.value.length < 4) {
+    error.value = "Kode OTP minimal 4 digit.";
+    return;
+  }
+
+  loading.value = true;
+  try {
+    const res = await verifyOtp(canonicalPhone.value, inputCode.value, "login");
+
+    if (res.registered) {
+      if (res.user.role === "admin") {
+        router.push("/admin");
+      } else {
+        router.push("/");
+      }
       return;
     }
 
-    // Admin
-    if (user.role === "admin") {
-      router.push("/admin");
-      return;
-    }
-
-    // Penjual belum dibuat dashboardnya
-    router.push("/");
-  } catch (error) {
-    alert(error.message);
+    router.push({
+      name: "customer-register",
+      query: { phone: canonicalPhone.value },
+    });
+  } catch (e) {
+    error.value = e.message || "Kode OTP salah.";
+    inputCode.value = "";
+  } finally {
+    loading.value = false;
   }
 }
 </script>
@@ -59,7 +117,6 @@ async function login() {
          BAGIAN KIRI
     ========================== -->
     <section class="login-left">
-
       <div class="left-content">
 
         <h1>
@@ -78,7 +135,6 @@ async function login() {
           berbagai peluang usaha dalam satu platform.
         </p>
 
-        <!-- GAMBAR CUSTOMER -->
         <div class="character-wrapper">
           <img
             src="/images/login-customer.png"
@@ -87,7 +143,6 @@ async function login() {
           />
         </div>
 
-        <!-- KEUNGGULAN -->
         <div class="benefit-card">
 
           <div class="benefit-item">
@@ -107,7 +162,6 @@ async function login() {
                 />
               </svg>
             </div>
-
             <div>
               <h3>Beragam Produk UMKM</h3>
               <p>
@@ -136,12 +190,9 @@ async function login() {
                 />
               </svg>
             </div>
-
             <div>
               <h3>Transaksi Aman</h3>
-              <p>
-                Belanja dengan aman dan nyaman.
-              </p>
+              <p>Belanja dengan aman dan nyaman.</p>
             </div>
           </div>
 
@@ -153,7 +204,6 @@ async function login() {
                 />
               </svg>
             </div>
-
             <div>
               <h3>Dukung UMKM Indonesia</h3>
               <p>
@@ -173,12 +223,10 @@ async function login() {
          BAGIAN KANAN
     ========================== -->
     <section class="login-right">
-
       <div class="login-card">
 
         <!-- HEADER CARD -->
         <div class="card-top">
-
           <button
             class="back-button"
             type="button"
@@ -195,199 +243,123 @@ async function login() {
             </svg>
           </button>
 
-          <span class="back-text">
-            Kembali ke Beranda
-          </span>
+          <span class="back-text">Kembali ke Beranda</span>
 
-         <div class="register-text">
-  Belum punya akun?
-  <button
-    type="button"
-    @click="showRegisterModal = true"
-  >
-    Daftar
-  </button>
-</div>
-
+          <div class="register-text">
+            Belum punya akun?
+            <button type="button" @click="showRegisterModal = true">
+              Daftar
+            </button>
+          </div>
         </div>
 
 
         <!-- JUDUL -->
         <div class="login-header">
-
           <h2>
             Masuk ke Akun
             <span>ARUNA</span>
           </h2>
 
-          <p>
-            Masukkan email dan password Anda untuk melanjutkan
-            <br />
-            ke platform ARUNA.
+          <p v-if="step === 'phone'">
+            Masukkan nomor WhatsApp Anda, kami akan mengirimkan kode OTP untuk verifikasi.
           </p>
-
+          <p v-else>
+            Kode OTP telah dikirim ke
+            <strong>{{ canonicalPhone }}</strong>.
+            Masukkan 6 digit kode untuk melanjutkan.
+          </p>
         </div>
 
 
-        <!-- FORM -->
-        <form @submit.prevent="login">
+        <!-- FORM OTP -->
+        <form class="otp-form" @submit.prevent="step === 'phone' ? kirimOtp() : verifikasi()">
 
-          <!-- EMAIL -->
-          <div class="form-group">
+          <!-- STEP 1: nomor HP -->
+          <template v-if="step === 'phone'">
+            <div class="form-group">
+              <label for="phone">Nomor WhatsApp</label>
 
-            <label for="email">
-              Alamat Email
-            </label>
-
-            <div class="input-wrapper">
-
-              <svg
-                class="input-icon"
-                viewBox="0 0 24 24"
-                fill="none"
-              >
-                <rect
-                  x="3"
-                  y="5"
-                  width="18"
-                  height="14"
-                  rx="2"
-                  stroke="currentColor"
-                  stroke-width="1.8"
-                />
-                <path
-                  d="m3 7 9 6 9-6"
-                  stroke="currentColor"
-                  stroke-width="1.8"
-                  stroke-linejoin="round"
-                />
-              </svg>
-
-              <input
-                id="email"
-                v-model="email"
-                type="email"
-                placeholder="Masukkan email Anda"
-              />
-
-            </div>
-
-          </div>
-
-
-          <!-- PASSWORD -->
-          <div class="form-group password-group">
-
-            <label for="password">
-              Password
-            </label>
-
-            <div class="input-wrapper">
-
-              <svg
-                class="input-icon"
-                viewBox="0 0 24 24"
-                fill="none"
-              >
-                <rect
-                  x="5"
-                  y="10"
-                  width="14"
-                  height="10"
-                  rx="2"
-                  stroke="currentColor"
-                  stroke-width="1.8"
-                />
-                <path
-                  d="M8 10V7a4 4 0 0 1 8 0v3"
-                  stroke="currentColor"
-                  stroke-width="1.8"
-                  stroke-linecap="round"
-                />
-              </svg>
-
-              <input
-                id="password"
-                v-model="password"
-                :type="showPassword ? 'text' : 'password'"
-                placeholder="Masukkan password Anda"
-              />
-
-              <button
-                class="password-toggle"
-                type="button"
-                @click="showPassword = !showPassword"
-                aria-label="Tampilkan password"
-              >
-
-                <svg
-                  v-if="!showPassword"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                >
+              <div class="input-wrapper">
+                <svg class="input-icon" viewBox="0 0 24 24" fill="none">
                   <path
-                    d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6z"
-                    stroke="currentColor"
-                    stroke-width="1.7"
-                  />
-                  <circle
-                    cx="12"
-                    cy="12"
-                    r="2.5"
-                    stroke="currentColor"
-                    stroke-width="1.7"
-                  />
-                </svg>
-
-                <svg
-                  v-else
-                  viewBox="0 0 24 24"
-                  fill="none"
-                >
-                  <path
-                    d="M3 3l18 18"
+                    d="M6 3H9L11 8L8.5 9.5C9.6 11.8 12.2 14.4 14.5 15.5L16 13L21 15V18C21 19.1 20.1 20 19 20C10.7 20 4 13.3 4 5C4 3.9 4.9 3 6 3Z"
                     stroke="currentColor"
                     stroke-width="1.8"
-                    stroke-linecap="round"
-                  />
-                  <path
-                    d="M10.6 6.2A9.8 9.8 0 0 1 12 6c6 0 9.5 6 9.5 6a17 17 0 0 1-3.2 3.7"
-                    stroke="currentColor"
-                    stroke-width="1.7"
-                    stroke-linecap="round"
-                  />
-                  <path
-                    d="M6.1 8.1C3.8 9.8 2.5 12 2.5 12s3.5 6 9.5 6c1.1 0 2.1-.2 3-.6"
-                    stroke="currentColor"
-                    stroke-width="1.7"
-                    stroke-linecap="round"
+                    stroke-linejoin="round"
                   />
                 </svg>
 
-              </button>
+                <input
+                  id="phone"
+                  v-model="inputPhone"
+                  type="tel"
+                  inputmode="numeric"
+                  placeholder="Contoh: 081234567890"
+                  autocomplete="tel"
+                />
+              </div>
+            </div>
+          </template>
 
+          <!-- STEP 2: kode OTP -->
+          <template v-else>
+            <div class="form-group">
+              <label for="otp">Kode OTP</label>
+
+              <div class="input-wrapper">
+                <svg class="input-icon" viewBox="0 0 24 24" fill="none">
+                  <rect
+                    x="5" y="10" width="14" height="10" rx="2"
+                    stroke="currentColor" stroke-width="1.8"
+                  />
+                  <path
+                    d="M8 10V7a4 4 0 0 1 8 0v3"
+                    stroke="currentColor" stroke-width="1.8" stroke-linecap="round"
+                  />
+                </svg>
+
+                <input
+                  id="otp"
+                  v-model="inputCode"
+                  type="text"
+                  inputmode="numeric"
+                  maxlength="6"
+                  placeholder="Masukkan 6 digit kode"
+                  autocomplete="one-time-code"
+                />
+              </div>
             </div>
 
-          </div>
+            <div class="otp-actions">
+              <button
+                type="button"
+                class="otp-link"
+                :disabled="!canResend || loading"
+                @click="kirimUlang"
+              >
+                {{ canResend ? "Kirim ulang kode" : `Kirim ulang dalam ${cooldown}s` }}
+              </button>
 
+              <span class="otp-sep">•</span>
 
-          <!-- LUPA PASSWORD -->
-          <div class="forgot-wrapper">
-            <button
-              type="button"
-              class="forgot-password"
-            >
-              Lupa Password?
-            </button>
-          </div>
+              <button type="button" class="otp-link" @click="gantiNomor">
+                Ganti nomor
+              </button>
+            </div>
+          </template>
 
+          <!-- ERROR -->
+          <p v-if="error" class="form-error">{{ error }}</p>
 
-          <!-- LOGIN -->
-          <button
-            type="submit"
-            class="login-submit"
-          >
-            <span>Masuk Sekarang</span>
+          <!-- SUBMIT -->
+          <button type="submit" class="login-submit" :disabled="loading">
+            <span v-if="step === 'phone'">
+              {{ loading ? "Mengirim..." : "Kirim OTP" }}
+            </span>
+            <span v-else>
+              {{ loading ? "Memverifikasi..." : "Verifikasi & Masuk" }}
+            </span>
 
             <svg viewBox="0 0 24 24" fill="none">
               <path
@@ -411,7 +383,6 @@ async function login() {
 
         <!-- FOOTER -->
         <div class="login-security">
-
           <svg viewBox="0 0 24 24" fill="none">
             <rect
               x="5"
@@ -430,23 +401,18 @@ async function login() {
             />
           </svg>
 
-          <span>
-            Data Anda aman dan terlindungi bersama ARUNA.
-          </span>
-
+          <span>Data Anda aman dan terlindungi bersama ARUNA.</span>
         </div>
 
       </div>
-
     </section>
 
   </main>
 
-<RegisterRoleModal
-  v-if="showRegisterModal"
-  @close="showRegisterModal = false"
-/>
-
+  <RegisterRoleModal
+    v-if="showRegisterModal"
+    @close="showRegisterModal = false"
+  />
 </template>
 
 
@@ -462,28 +428,10 @@ async function login() {
   grid-template-columns: 45% 55%;
   overflow: hidden;
   background:
-    radial-gradient(
-      circle at 12% 5%,
-      rgba(155, 205, 255, 0.55) 0 90px,
-      transparent 91px
-    ),
-    radial-gradient(
-      circle at 91% 7%,
-      rgba(168, 213, 255, 0.45) 0 150px,
-      transparent 151px
-    ),
-    linear-gradient(
-      135deg,
-      #f1f9ff 0%,
-      #dff1ff 50%,
-      #edf8ff 100%
-    );
-
-  font-family:
-    "Poppins",
-    "Figtree",
-    Arial,
-    sans-serif;
+    radial-gradient(circle at 12% 5%, rgba(155, 205, 255, 0.55) 0 90px, transparent 91px),
+    radial-gradient(circle at 91% 7%, rgba(168, 213, 255, 0.45) 0 150px, transparent 151px),
+    linear-gradient(135deg, #f1f9ff 0%, #dff1ff 50%, #edf8ff 100%);
+  font-family: "Poppins", "Figtree", Arial, sans-serif;
 }
 
 
@@ -550,9 +498,6 @@ async function login() {
   font-weight: 450;
 }
 
-
-/* CHARACTER */
-
 .character-wrapper {
   position: relative;
   width: 560px;
@@ -570,22 +515,15 @@ async function login() {
   object-position: center bottom;
 }
 
-
-/* BENEFIT CARD */
-
 .benefit-card {
   position: relative;
   width: 535px;
   margin: -8px auto 0;
   padding: 19px 30px;
-
   background: rgba(255, 255, 255, 0.82);
   border: 1px solid rgba(255, 255, 255, 0.9);
   border-radius: 25px;
-
-  box-shadow:
-    0 14px 35px rgba(56, 118, 177, 0.12);
-
+  box-shadow: 0 14px 35px rgba(56, 118, 177, 0.12);
   backdrop-filter: blur(10px);
 }
 
@@ -600,10 +538,8 @@ async function login() {
   flex: 0 0 58px;
   width: 58px;
   height: 58px;
-
   display: grid;
   place-items: center;
-
   background: #e1efff;
   color: #0865d8;
   border-radius: 50%;
@@ -646,22 +582,15 @@ async function login() {
 }
 
 .login-card {
-  width: min(760px, 100%);
-  min-height: 850px;
-  padding: 40px 68px 42px;
-
+  width: min(560px, 100%);
+  padding: 40px 56px 44px;
   background: rgba(255, 255, 255, 0.96);
   border-radius: 30px;
-
-  box-shadow:
-    0 18px 55px rgba(49, 101, 155, 0.13);
-
+  box-shadow: 0 18px 55px rgba(49, 101, 155, 0.13);
   position: relative;
 }
 
-
 /* CARD TOP */
-
 .card-top {
   display: flex;
   align-items: center;
@@ -672,17 +601,18 @@ async function login() {
 .back-button {
   width: 48px;
   height: 48px;
-
   border: none;
   border-radius: 50%;
-
   background: #f1f5fa;
   color: #58739d;
-
   display: grid;
   place-items: center;
-
   cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+.back-button:hover {
+  background: #e4edf8;
 }
 
 .back-button svg {
@@ -707,11 +637,9 @@ async function login() {
   border: none;
   background: transparent;
   padding: 0;
-
   color: #0865d8;
   font-size: inherit;
   font-weight: 600;
-
   cursor: pointer;
   text-decoration: underline;
 }
@@ -720,13 +648,14 @@ async function login() {
 /* HEADER */
 
 .login-header {
-  margin-top: 48px;
+  margin-top: 34px;
+  margin-bottom: 30px;
 }
 
 .login-header h2 {
-  margin: 0;
+  margin: 0 0 10px;
   color: #0d2051;
-  font-size: 42px;
+  font-size: 34px;
   line-height: 1.15;
   font-weight: 750;
   letter-spacing: -1px;
@@ -737,25 +666,34 @@ async function login() {
 }
 
 .login-header p {
-  margin: 12px 0 35px;
+  margin: 0;
   color: #91a5c8;
-  font-size: 17px;
-  line-height: 1.45;
+  font-size: 15px;
+  line-height: 1.55;
+}
+
+.login-header p strong {
+  color: #0d2051;
+  font-weight: 600;
 }
 
 
 /* FORM */
 
+.otp-form {
+  display: flex;
+  flex-direction: column;
+}
+
 .form-group {
-  margin-bottom: 27px;
+  margin-bottom: 22px;
 }
 
 .form-group label {
   display: block;
-  margin-bottom: 10px;
-
+  margin-bottom: 9px;
   color: #102652;
-  font-size: 16px;
+  font-size: 14px;
   font-weight: 650;
 }
 
@@ -766,24 +704,16 @@ async function login() {
 
 .input-wrapper input {
   width: 100%;
-  height: 64px;
-
-  padding: 0 58px 0 70px;
-
+  height: 58px;
+  padding: 0 20px 0 60px;
   border: 1.5px solid #dce8f6;
   border-radius: 14px;
-
   background: #fff;
-
   color: #182e59;
   font-family: inherit;
   font-size: 16px;
-
   outline: none;
-
-  transition:
-    border-color 0.2s ease,
-    box-shadow 0.2s ease;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
 .input-wrapper input::placeholder {
@@ -797,126 +727,124 @@ async function login() {
 
 .input-icon {
   position: absolute;
-  left: 23px;
+  left: 20px;
   top: 50%;
   transform: translateY(-50%);
-
-  width: 26px;
-  height: 26px;
-
+  width: 24px;
+  height: 24px;
   color: #7792bb;
   pointer-events: none;
 }
 
-.password-toggle {
-  position: absolute;
-  right: 18px;
-  top: 50%;
-  transform: translateY(-50%);
 
-  width: 35px;
-  height: 35px;
+/* OTP ACTIONS (kirim ulang • ganti nomor) */
 
-  border: none;
-  background: transparent;
-
-  color: #91a3bf;
-
-  display: grid;
-  place-items: center;
-
-  cursor: pointer;
-}
-
-.password-toggle svg {
-  width: 23px;
-  height: 23px;
-}
-
-
-/* FORGOT */
-
-.forgot-wrapper {
+.otp-actions {
   display: flex;
-  justify-content: flex-end;
-  margin-top: -14px;
-  margin-bottom: 30px;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  margin: -6px 0 22px;
+  font-size: 14px;
 }
 
-.forgot-password {
+.otp-link {
   border: none;
   background: transparent;
   padding: 0;
-
   color: #0865d8;
   font-family: inherit;
-  font-size: 15px;
+  font-size: 14px;
   font-weight: 600;
-
   cursor: pointer;
   text-decoration: underline;
 }
 
+.otp-link:hover:not(:disabled) {
+  color: #0754b5;
+}
 
-/* LOGIN BUTTON */
+.otp-link:disabled {
+  color: #b1c0d4;
+  cursor: not-allowed;
+  text-decoration: none;
+}
+
+.otp-sep {
+  color: #c8d5e5;
+  font-size: 14px;
+}
+
+
+/* ERROR */
+
+.form-error {
+  margin: 0 0 18px;
+  padding: 12px 16px;
+  border-radius: 10px;
+  background: #fff4f4;
+  border: 1px solid #fde0e0;
+  color: #dc2626;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+
+/* SUBMIT */
 
 .login-submit {
   width: 100%;
-  height: 72px;
-
+  height: 60px;
   border: none;
   border-radius: 14px;
-
   background: #0865d8;
   color: #fff;
-
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 18px;
-
+  gap: 14px;
   font-family: inherit;
-  font-size: 20px;
+  font-size: 17px;
   font-weight: 650;
-
   cursor: pointer;
-
-  box-shadow:
-    0 10px 25px rgba(8, 101, 216, 0.2);
-
-  transition:
-    background 0.2s ease,
-    transform 0.2s ease;
+  box-shadow: 0 10px 25px rgba(8, 101, 216, 0.2);
+  transition: background 0.2s ease, transform 0.2s ease;
 }
 
-.login-submit:hover {
+.login-submit:hover:not(:disabled) {
   background: #0754b5;
   transform: translateY(-1px);
 }
 
+.login-submit:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
 .login-submit svg {
-  width: 29px;
-  height: 29px;
+  width: 24px;
+  height: 24px;
 }
 
 
 /* SECURITY */
 
 .login-security {
-  margin-top: 105px;
-
+  margin-top: 40px;
+  padding-top: 24px;
+  border-top: 1px solid #eef3fa;
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 12px;
-
+  gap: 10px;
   color: #8198bd;
-  font-size: 15px;
+  font-size: 13px;
 }
 
 .login-security svg {
-  width: 23px;
-  height: 23px;
+  width: 20px;
+  height: 20px;
   flex-shrink: 0;
 }
 
@@ -947,13 +875,7 @@ async function login() {
   .login-right {
     padding: 25px 30px;
   }
-
-  .login-card {
-    padding-left: 50px;
-    padding-right: 50px;
-  }
 }
-
 
 @media (max-width: 950px) {
   .login-page {
@@ -983,14 +905,9 @@ async function login() {
   }
 
   .login-card {
-    min-height: auto;
-  }
-
-  .login-security {
-    margin-top: 70px;
+    padding: 32px 40px 36px;
   }
 }
-
 
 @media (max-width: 600px) {
   .login-left {
@@ -1054,11 +971,12 @@ async function login() {
   }
 
   .login-header {
-    margin-top: 35px;
+    margin-top: 24px;
+    margin-bottom: 22px;
   }
 
   .login-header h2 {
-    font-size: 30px;
+    font-size: 26px;
   }
 
   .login-header p {
@@ -1066,18 +984,19 @@ async function login() {
   }
 
   .input-wrapper input {
-    height: 58px;
-    font-size: 14px;
+    height: 54px;
+    font-size: 15px;
   }
 
   .login-submit {
-    height: 62px;
-    font-size: 17px;
+    height: 54px;
+    font-size: 16px;
   }
 
   .login-security {
     font-size: 12px;
-    margin-top: 60px;
+    margin-top: 30px;
+    padding-top: 20px;
   }
 }
 </style>

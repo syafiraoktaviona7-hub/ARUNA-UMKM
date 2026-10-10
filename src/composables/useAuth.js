@@ -1,5 +1,6 @@
 import { reactive, computed } from "vue";
-import { api, getToken, setToken } from "@/services/api";
+import { api, otp, getToken, setToken } from "@/services/api";
+
 
 const STORAGE_KEY = "aruna_auth";
 
@@ -78,6 +79,23 @@ export function useAuth() {
     return hasil;
   }
 
+  // ==================== OTP WhatsApp ====================
+
+  async function requestOtp(phone, tujuan = "login") {
+    return otp.request(phone, tujuan);
+  }
+
+  async function verifyOtp(phone, code, tujuan = "login") {
+    const res = await otp.verify(phone, code, tujuan);
+
+    // Kalau nomor sudah terdaftar → otomatis login
+    if (res.registered && res.token && res.user) {
+      simpanSesi(res.user, res.token);
+    }
+
+    return res;
+  }
+
   function logout() {
     hapusSesi();
   }
@@ -94,5 +112,7 @@ export function useAuth() {
     updateUser,
     refreshUser,
     logout,
+    requestOtp,   
+    verifyOtp, 
   };
 }

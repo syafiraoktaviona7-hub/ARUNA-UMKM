@@ -62,6 +62,14 @@ export const katalog = {
   artikelDetail: (id) => api.get(`/artikel/${id}`),
 };
 
+// ---- OTP WhatsApp ----
+export const otp = {
+  request: (phone, tujuan = "login") =>
+    api.post("/auth/request-otp", { phone, tujuan }),
+  verify: (phone, code, tujuan = "login") =>
+    api.post("/auth/verify-otp", { phone, code, tujuan }),
+};
+
 // ---- Customer ----
 export const customer = {
   // items: [{ id, qty }]; opsional: nama_penerima, no_hp_penerima, alamat_kirim, catatan, metode_bayar

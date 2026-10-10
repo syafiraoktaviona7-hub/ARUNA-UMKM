@@ -1,10 +1,12 @@
 <script setup>
 import { ref, computed } from "vue";
-import { useRouter } from "vue-router";
+import { useRouter, useRoute } from "vue-router";
 import { useAuth } from "@/composables/useAuth";
 import { useWilayahFilter } from "@/composables/useWilayahFilter";
 
 const router = useRouter();
+const route  = useRoute();
+
 const { registerUser } = useAuth();
 
 const {
@@ -58,7 +60,17 @@ const form = ref({
   alamatLengkap: "",
 });
 
-
+// =========================
+// PREFILL nomor HP dari ?phone=+62...
+// Di-set oleh LoginPage setelah OTP berhasil
+// dan nomor belum terdaftar.
+// HARUS setelah `form` dideklarasikan.
+// =========================
+if (route.query.phone) {
+  const raw   = String(route.query.phone).replace(/^\+/, "");
+  const lokal = raw.startsWith("62") ? "0" + raw.slice(2) : raw;
+  form.value.nomorHp = lokal;
+}
 
 function kembali() {
   if (currentStep.value === 3) {
@@ -125,21 +137,21 @@ function lanjutkan() {
   // STEP 2 - ALAMAT
   // =========================
   if (currentStep.value === 2) {
-if (!provinceId.value) {
-  emptyFields.push("Provinsi");
-}
+    if (!provinceId.value) {
+      emptyFields.push("Provinsi");
+    }
 
-if (!cityId.value) {
-  emptyFields.push("Kota / Kabupaten");
-}
+    if (!cityId.value) {
+      emptyFields.push("Kota / Kabupaten");
+    }
 
-if (!districtId.value) {
-  emptyFields.push("Kecamatan");
-}
+    if (!districtId.value) {
+      emptyFields.push("Kecamatan");
+    }
 
-if (!villageId.value) {
-  emptyFields.push("Kelurahan / Desa");
-}
+    if (!villageId.value) {
+      emptyFields.push("Kelurahan / Desa");
+    }
 
     if (!form.value.kodePos.trim()) {
       emptyFields.push("Kode Pos");
@@ -178,25 +190,24 @@ async function daftarSekarang() {
   const namaDari = (daftar, id) => daftar.value.find((x) => x.id === id)?.name || "";
 
   try {
-   await registerUser({
-  name: form.value.nama,
-  email: form.value.email,
-  password: form.value.password,
-  role: "customer",
+    await registerUser({
+      name: form.value.nama,
+      email: form.value.email,
+      password: form.value.password,
+      role: "customer",
 
-  nomorHp: form.value.nomorHp,
-  tanggalLahir: form.value.tanggalLahir,
-  jenisKelamin: form.value.jenisKelamin,
+      nomorHp: form.value.nomorHp,
+      tanggalLahir: form.value.tanggalLahir,
+      jenisKelamin: form.value.jenisKelamin,
 
-  provinsi: namaDari(provinces, provinceId.value),
-  kota: namaDari(cities, cityId.value),
-  kecamatan: namaDari(districts, districtId.value),
-  kelurahan: namaDari(villages, villageId.value),
-  kodePos: form.value.kodePos,
-  alamatLengkap: form.value.alamatLengkap,
-});
+      provinsi: namaDari(provinces, provinceId.value),
+      kota: namaDari(cities, cityId.value),
+      kecamatan: namaDari(districts, districtId.value),
+      kelurahan: namaDari(villages, villageId.value),
+      kodePos: form.value.kodePos,
+      alamatLengkap: form.value.alamatLengkap,
+    });
 
- 
     alert("Pendaftaran berhasil! Silakan login menggunakan akun yang baru dibuat.");
 
     router.push("/login");
@@ -225,8 +236,6 @@ const tanggalLahirFormatted = computed(() => {
 
 const showPhoneError = ref(false);
 
-
-
 function handlePhoneInput(event) {
   const value = event.target.value;
 
@@ -244,7 +253,6 @@ function handlePhoneInput(event) {
 function closePhoneError() {
   showPhoneError.value = false;
 }
-
 </script>
 
 <template>
