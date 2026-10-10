@@ -17,6 +17,7 @@ import { katalog } from "@/services/api";
 import { jasaList } from "@/data/jasa";
 import { useAuth } from "@/composables/useAuth";
 import { adminRoutes, installAdminGuard } from "./adminRoutes";
+import CustomerVerifyPhonePage from "@/views/CustomerVerifyPhonePage.vue";
 
 // =========================
 // HELPER: cek data ada di server
@@ -124,6 +125,15 @@ const router = createRouter({
         );
         return exists ? true : keNotFound(to);
       },
+    },
+
+    // VERIFIKASI NOMOR CUSTOMER
+    {
+      path: "/register/customer/verify",
+      name: "customer-verify-phone",
+      component: CustomerVerifyPhonePage,
+      meta: { bare: true, title: "Verifikasi Nomor — ARUNA" },
+      beforeEnter: () => (isLoggedIn() ? { name: "home" } : true),
     },
 
     // =========================

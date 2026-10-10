@@ -3,9 +3,9 @@ import { ref } from "vue";
 import { useRouter } from "vue-router";
 
 const emit = defineEmits(["close"]);
-
 const router = useRouter();
 
+// "customer" atau "seller"
 const selectedRole = ref("customer");
 
 function closeModal() {
@@ -14,12 +14,15 @@ function closeModal() {
 
 function continueRegister() {
   if (selectedRole.value === "customer") {
-    router.push("/register/customer");
+    emit("close");
+    router.push({ name: "customer-verify-phone" });
     return;
   }
 
   if (selectedRole.value === "seller") {
-    router.push("/register");
+    emit("close");
+    router.push({ name: "register" });
+    return;
   }
 }
 </script>
@@ -27,21 +30,15 @@ function continueRegister() {
 <template>
   <div class="modal-overlay" @click.self="closeModal">
     <div class="role-modal">
+      <!-- TOMBOL CLOSE -->
+      <button class="close-button" type="button" @click="closeModal">×</button>
 
-      <!-- Tombol Close -->
-      <button class="close-button" type="button" @click="closeModal">
-        ×
-      </button>
-
-      <!-- Icon atas -->
+      <!-- ICON ATAS -->
       <div class="modal-icon">
-        <img
-          src="/images/register-role-icon.png"
-          alt="Pilih peran"
-        />
+        <img src="/images/register-role-icon.png" alt="Pilih peran" />
       </div>
 
-      <!-- Judul -->
+      <!-- JUDUL -->
       <div class="modal-header">
         <h2>Daftar sebagai siapa?</h2>
         <p>
@@ -50,9 +47,8 @@ function continueRegister() {
         </p>
       </div>
 
-      <!-- Pilihan Role -->
+      <!-- PILIHAN ROLE -->
       <div class="role-options">
-
         <!-- CUSTOMER -->
         <button
           type="button"
@@ -61,10 +57,7 @@ function continueRegister() {
           @click="selectedRole = 'customer'"
         >
           <div class="role-image">
-            <img
-              src="/images/register-customer.png"
-              alt="Customer"
-            />
+            <img src="/images/register-customer.png" alt="Customer" />
           </div>
 
           <h3>Customer</h3>
@@ -87,10 +80,7 @@ function continueRegister() {
           @click="selectedRole = 'seller'"
         >
           <div class="role-image">
-            <img
-              src="/images/register-seller.png"
-              alt="Penjual"
-            />
+            <img src="/images/register-seller.png" alt="Penjual" />
           </div>
 
           <h3>Penjual</h3>
@@ -104,19 +94,13 @@ function continueRegister() {
             <span v-if="selectedRole === 'seller'"></span>
           </span>
         </button>
-
       </div>
 
-      <!-- Tombol lanjut -->
-      <button
-        class="continue-button"
-        type="button"
-        @click="continueRegister"
-      >
+      <!-- TOMBOL LANJUT -->
+      <button type="button" class="continue-button" @click="continueRegister">
         <span>Lanjutkan</span>
         <span class="arrow">→</span>
       </button>
-
     </div>
   </div>
 </template>
@@ -161,14 +145,15 @@ function continueRegister() {
     opacity: 0;
     transform: translateY(15px) scale(0.97);
   }
-
   to {
     opacity: 1;
     transform: translateY(0) scale(1);
   }
 }
 
-/* CLOSE */
+/* =========================
+   TOMBOL CLOSE
+========================= */
 
 .close-button {
   position: absolute;
@@ -201,7 +186,9 @@ function continueRegister() {
   color: #0865d8;
 }
 
-/* ICON */
+/* =========================
+   ICON
+========================= */
 
 .modal-icon {
   width: 82px;
@@ -221,7 +208,9 @@ function continueRegister() {
   object-fit: contain;
 }
 
-/* HEADER */
+/* =========================
+   HEADER
+========================= */
 
 .modal-header h2 {
   margin: 0;
@@ -243,7 +232,9 @@ function continueRegister() {
   line-height: 1.55;
 }
 
-/* ROLE */
+/* =========================
+   ROLE OPTIONS
+========================= */
 
 .role-options {
   display: grid;
@@ -288,7 +279,6 @@ function continueRegister() {
 }
 
 /* IMAGE */
-
 .role-image {
   width: 125px;
   height: 95px;
@@ -308,7 +298,6 @@ function continueRegister() {
 }
 
 /* TEXT */
-
 .role-card h3 {
   margin: 2px 0 5px;
 
@@ -328,7 +317,6 @@ function continueRegister() {
 }
 
 /* RADIO */
-
 .radio {
   width: 16px;
   height: 16px;
@@ -355,11 +343,13 @@ function continueRegister() {
   background: #0865d8;
 }
 
-/* CONTINUE */
+/* =========================
+   CONTINUE BUTTON
+========================= */
 
 .continue-button {
   width: 100%;
-  height: 43px;
+  height: 48px;
 
   border: none;
   border-radius: 10px;
@@ -367,7 +357,8 @@ function continueRegister() {
   background: #0865d8;
   color: #ffffff;
 
-  font-size: 12px;
+  font-family: inherit;
+  font-size: 13px;
   font-weight: 600;
 
   display: flex;
@@ -379,19 +370,31 @@ function continueRegister() {
 
   box-shadow: 0 7px 18px rgba(8, 101, 216, 0.18);
 
-  transition: 0.2s ease;
+  transition:
+    background 0.2s ease,
+    transform 0.2s ease,
+    box-shadow 0.2s ease;
 }
 
 .continue-button:hover {
   background: #0754b5;
+  transform: translateY(-1px);
+  box-shadow: 0 10px 24px rgba(8, 101, 216, 0.28);
 }
 
 .arrow {
   font-size: 18px;
   line-height: 1;
+  transition: transform 0.2s ease;
 }
 
-/* MOBILE */
+.continue-button:hover .arrow {
+  transform: translateX(4px);
+}
+
+/* =========================
+   MOBILE
+========================= */
 
 @media (max-width: 520px) {
   .role-modal {
