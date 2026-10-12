@@ -151,16 +151,21 @@ function toggleFavorite() {
   transform: translateY(-3px);
 }
 
-/* MEDIA */
 .media {
   position: relative;
-  aspect-ratio: 4 / 3;
+  width: 100%;
+  aspect-ratio: 1 / 1; /* ← Kotak, biar semua sama */
   background: #e9f1f8;
+  overflow: hidden;
 }
 .media img {
+  position: absolute;
+  inset: 0;
   width: 100%;
   height: 100%;
   object-fit: cover;
+  object-position: center;
+  display: block;
 }
 .ph {
   width: 100%;
