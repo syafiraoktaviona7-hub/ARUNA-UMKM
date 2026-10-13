@@ -49,6 +49,7 @@ const latest = computed(() =>
 
 <template>
   <aside class="side">
+    <!-- PROMO SLIDER -->
     <div class="promo">
       <div class="track" :style="{ transform: `translateX(-${index * 100}%)` }">
         <div
@@ -65,6 +66,7 @@ const latest = computed(() =>
       </div>
     </div>
 
+    <!-- KONTROL -->
     <div class="controls">
       <div class="dots">
         <button
@@ -95,6 +97,7 @@ const latest = computed(() =>
       </div>
     </div>
 
+    <!-- ARTIKEL TERBARU -->
     <h2>Artikel Terbaru</h2>
 
     <ul class="latest">
@@ -109,21 +112,35 @@ const latest = computed(() =>
 </template>
 
 <style scoped>
+/* =========================
+   SIDEBAR
+========================= */
 .side {
   position: sticky;
   top: 90px;
   padding-left: 32px;
+  min-width: 0;
+  overflow: hidden;
 }
 
+/* =========================
+   PROMO SLIDER
+========================= */
 .promo {
   overflow: hidden;
   border-radius: 12px;
+  width: 100%;
+  max-width: 100%;
 }
+
 .track {
   display: flex;
   transition: transform 0.4s ease;
+  width: 100%;
 }
+
 .slide {
+  flex: 0 0 100%;
   min-width: 100%;
   min-height: 190px;
   padding: 24px;
@@ -132,7 +149,9 @@ const latest = computed(() =>
   justify-content: center;
   gap: 8px;
   color: #fff;
+  box-sizing: border-box;
 }
+
 .s0 {
   background: linear-gradient(110deg, #0865d8, #0a4fa8);
 }
@@ -142,16 +161,21 @@ const latest = computed(() =>
 .s2 {
   background: linear-gradient(110deg, #0a4fa8, #14396f);
 }
+
 .slide h3 {
   font-size: 20px;
   font-weight: 700;
   line-height: 1.3;
+  word-wrap: break-word;
 }
+
 .slide p {
   font-size: 13px;
   line-height: 1.7;
   opacity: 0.92;
+  word-wrap: break-word;
 }
+
 .cta {
   align-self: flex-start;
   margin-top: 8px;
@@ -161,22 +185,31 @@ const latest = computed(() =>
   color: #0865d8;
   font-size: 13px;
   font-weight: 700;
+  transition: background 0.2s ease;
 }
+
 .cta:hover {
   background: #eaf4ff;
 }
 
+/* =========================
+   KONTROL
+========================= */
 .controls {
   display: flex;
   align-items: center;
   justify-content: space-between;
   margin: 16px 0 28px;
+  gap: 12px;
+  flex-wrap: wrap;
 }
+
 .dots {
   display: flex;
   align-items: center;
   gap: 8px;
 }
+
 .dot {
   width: 10px;
   height: 10px;
@@ -184,17 +217,21 @@ const latest = computed(() =>
   border-radius: 50%;
   background: #cfdbe9;
   padding: 0;
-  transition: all 0.2s;
+  cursor: pointer;
+  transition: all 0.2s ease;
 }
+
 .dot.on {
   width: 22px;
   border-radius: 10px;
   background: #0865d8;
 }
+
 .arrows {
   display: flex;
   gap: 10px;
 }
+
 .arrows button {
   width: 40px;
   height: 40px;
@@ -205,11 +242,17 @@ const latest = computed(() =>
   font-size: 22px;
   line-height: 1;
   box-shadow: 0 4px 14px rgba(36, 91, 153, 0.18);
+  cursor: pointer;
+  transition: color 0.2s ease;
 }
+
 .arrows button:hover {
   color: #0865d8;
 }
 
+/* =========================
+   ARTIKEL TERBARU
+========================= */
 h2 {
   color: #142d4e;
   font-size: 26px;
@@ -223,33 +266,136 @@ h2 {
   display: grid;
   gap: 16px;
 }
+
 .item {
   display: grid;
   grid-template-columns: 42% 1fr;
   gap: 14px;
   align-items: start;
+  min-width: 0;
 }
+
 .item img {
   width: 100%;
+  height: 100%;
   aspect-ratio: 2 / 1;
   object-fit: cover;
   border-radius: 8px;
   background: #e9f1f8;
+  display: block;
 }
+
 .item span {
   color: #142d4e;
   font-size: 15px;
   font-weight: 600;
   line-height: 1.45;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
+
 .item:hover span {
   color: #0865d8;
 }
 
+/* =========================
+   RESPONSIVE
+========================= */
+
+/* Tablet & mobile: sidebar turun ke bawah, hilangkan sticky */
 @media (max-width: 1000px) {
   .side {
     position: static;
     padding: 36px 0 0;
+    overflow: visible;
+  }
+
+  .promo {
+    max-width: 100%;
+  }
+}
+
+/* Mobile: font size lebih kecil */
+@media (max-width: 768px) {
+  .slide {
+    min-height: 170px;
+    padding: 20px;
+  }
+
+  .slide h3 {
+    font-size: 18px;
+  }
+
+  .slide p {
+    font-size: 12.5px;
+  }
+
+  .cta {
+    font-size: 12.5px;
+    padding: 8px 16px;
+  }
+
+  h2 {
+    font-size: 22px;
+  }
+
+  .item span {
+    font-size: 14px;
+  }
+}
+
+/* Mobile kecil */
+@media (max-width: 480px) {
+  .slide {
+    min-height: 150px;
+    padding: 18px;
+  }
+
+  .slide h3 {
+    font-size: 16px;
+  }
+
+  .slide p {
+    font-size: 12px;
+    line-height: 1.6;
+  }
+
+  .cta {
+    font-size: 12px;
+    padding: 7px 14px;
+  }
+
+  .controls {
+    margin: 14px 0 22px;
+  }
+
+  .arrows button {
+    width: 36px;
+    height: 36px;
+    font-size: 20px;
+  }
+
+  h2 {
+    font-size: 20px;
+    margin-bottom: 14px;
+  }
+
+  .item {
+    grid-template-columns: 38% 1fr;
+    gap: 12px;
+  }
+
+  .item span {
+    font-size: 13px;
+    -webkit-line-clamp: 2;
+  }
+
+  .latest {
+    gap: 14px;
   }
 }
 </style>

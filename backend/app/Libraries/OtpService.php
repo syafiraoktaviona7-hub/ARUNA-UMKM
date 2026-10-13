@@ -4,8 +4,20 @@ namespace App\Libraries;
 
 class OtpService
 {
-    public const OTP_TTL_SECONDS          = 300;  // 5 menit
-    public const RESEND_COOLDOWN_SECONDS  = 60;   // 1 menit
+    /** Masa berlaku OTP dalam detik (5 menit) */
+    public const OTP_TTL_SECONDS = 300;
+
+    /** Jeda minimum sebelum boleh minta OTP baru untuk phone yang sama */
+    public const RESEND_COOLDOWN_SECONDS = 60;
+
+    /** Batas request OTP per phone dalam 1 jam */
+    public const MAX_REQUEST_PER_PHONE_PER_HOUR = 5;
+
+    /** Batas request OTP per IP dalam 1 jam */
+    public const MAX_REQUEST_PER_IP_PER_HOUR = 10;
+
+    /** Nama brand untuk pesan WhatsApp */
+    protected const BRAND_NAME = 'Aruna UMKM';
 
     public function generateCode(): string
     {
@@ -64,42 +76,45 @@ class OtpService
 
     public function sendViaWhatsapp(string $canonicalPhone, string $code): bool
     {
-        $config     = config(\Config\Whatsapp::class);
-        $gatewayUrl = $config->gatewayUrl;
-        $apiKey     = $config->apiKey;
+        $config = config(\Config\Whatsapp::class);
 
-        if (empty($apiKey)) {
-            log_message('error', 'OTP WhatsApp: whatsapp.apiKey belum diisi di .env.');
+        if (empty($config->apiKey) || empty($config->gatewayUrl)) {
+            log_message('error', 'OTP WhatsApp: whatsapp.gatewayUrl / whatsapp.apiKey belum diisi di .env.');
             return false;
         }
 
-        $message = "🔐 *Aruna UMKM - Kode OTP Login*\n\n"
+        $brand = self::BRAND_NAME;
+
+        $message = "🔐 *{$brand} - Kode OTP Login*\n\n"
             . "Kode verifikasi kamu:\n\n"
             . '*' . implode('  ', str_split($code)) . "*\n\n"
             . '⏱ Berlaku hanya *' . (self::OTP_TTL_SECONDS / 60) . " menit*\n\n"
             . "---\n"
-            . "⚠️ Jangan bagikan kode ini ke siapa pun.";
+            . "⚠️ Jangan bagikan kode ini ke siapa pun.\n"
+            . "{$brand} tidak pernah meminta kode OTP kamu.";
 
-        $body = [
-            'api_key'  => $apiKey,
-            'receiver' => $canonicalPhone,
-            'data'     => ['message' => $message],
+        $payload = [
+            'api_key'   => $config->apiKey,
+            'device_id' => (int) $config->deviceId,
+            'to'        => ltrim($canonicalPhone, '+'),   // +62812... -> 62812...
+            'type'      => 'text',
+            'text'      => $message,
         ];
 
         $ch = curl_init();
         curl_setopt_array($ch, [
-            CURLOPT_URL            => $gatewayUrl,
+            CURLOPT_URL            => $config->gatewayUrl,
             CURLOPT_RETURNTRANSFER => true,
-            CURLOPT_CUSTOMREQUEST  => 'POST',
-            CURLOPT_POSTFIELDS     => json_encode($body),
+            CURLOPT_POST           => true,
+            CURLOPT_POSTFIELDS     => json_encode($payload),
             CURLOPT_HTTPHEADER     => ['Accept: application/json', 'Content-Type: application/json'],
-            CURLOPT_TIMEOUT        => 30,
             CURLOPT_CONNECTTIMEOUT => 10,
+            CURLOPT_TIMEOUT        => 20,
         ]);
 
         $response = curl_exec($ch);
         $error    = curl_error($ch);
-        $httpCode = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        $status   = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
         curl_close($ch);
 
         if ($error || $response === false) {
@@ -107,12 +122,24 @@ class OtpService
             return false;
         }
 
-        if ($httpCode < 200 || $httpCode >= 300) {
-            log_message('error', "Gagal kirim OTP WhatsApp (HTTP {$httpCode}): " . $response);
+        log_message('info', "OTP WhatsApp: HTTP {$status} - {$response}");
+
+        if ($status < 200 || $status >= 300) {
+            log_message('error', "Gagal kirim OTP WhatsApp (HTTP {$status}): {$response}");
             return false;
         }
 
-        log_message('info', 'OTP WhatsApp terkirim ke ' . $canonicalPhone);
+        $json = json_decode($response, true);
+        if (is_array($json) && (
+            !empty($json['error'])
+            || (array_key_exists('ok', $json) && $json['ok'] === false)
+            || (array_key_exists('success', $json) && $json['success'] === false)
+            || (array_key_exists('status', $json) && $json['status'] === false)
+        )) {
+            log_message('error', 'Gagal kirim OTP WhatsApp (API): ' . $response);
+            return false;
+        }
+
         return true;
     }
 }
